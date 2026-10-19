@@ -50,6 +50,7 @@ import {
   rememberMicrosoftEmailClaim,
   takeMicrosoftEmailClaim,
 } from "@/lib/auth-plugins/microsoft-email-claim";
+import { trustedProxyAuthIpAddress } from "@/lib/client-ip";
 import { redis } from "@/lib/kv";
 import {
   LOCALE_COOKIE_NAME,
@@ -665,14 +666,15 @@ export const authLib = betterAuth({
       maxAge: 5 * 60, // 5 minutes
     },
   },
-  advanced: env.NEXT_PUBLIC_COOKIE_DOMAIN
-    ? {
-        crossSubDomainCookies: {
-          enabled: true,
-          domain: env.NEXT_PUBLIC_COOKIE_DOMAIN,
-        },
-      }
-    : undefined,
+  advanced:
+    env.NEXT_PUBLIC_COOKIE_DOMAIN || trustedProxyAuthIpAddress
+      ? {
+          crossSubDomainCookies: env.NEXT_PUBLIC_COOKIE_DOMAIN
+            ? { enabled: true, domain: env.NEXT_PUBLIC_COOKIE_DOMAIN }
+            : undefined,
+          ipAddress: trustedProxyAuthIpAddress,
+        }
+      : undefined,
   trustedOrigins: [absoluteUrl()],
   baseURL,
 });

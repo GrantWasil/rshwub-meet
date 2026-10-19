@@ -2,18 +2,20 @@ import { createWideEvent, logger } from "@rallly/logger";
 import * as Sentry from "@sentry/nextjs";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
-import { ipAddress } from "@vercel/functions";
 import type { NextRequest } from "next/server";
 import { getLocale } from "@/i18n/server/get-locale";
 import { getSession } from "@/lib/auth";
+import { getTrpcClientIdentity } from "@/lib/client-ip";
 import { withPostHog } from "@/lib/posthog";
 import type { TRPCContext } from "@/trpc/context";
 import { appRouter } from "@/trpc/routers";
 
 const handler = async (req: NextRequest) => {
   const session = await getSession();
-  const ip = ipAddress(req) ?? "127.0.0.1";
-  const ja4Digest = req.headers.get("x-vercel-ja4-digest") ?? undefined;
+  const { ip, ja4Digest, identifier } = getTrpcClientIdentity(
+    req.headers,
+    session?.user?.id,
+  );
   const startTime = Date.now();
   const event = createWideEvent({
     service: "trpc",
@@ -40,8 +42,6 @@ const handler = async (req: NextRequest) => {
       router: appRouter,
       createContext: async () => {
         const locale = await getLocale();
-
-        const identifier = session?.user?.id ?? ja4Digest ?? ip;
 
         return {
           user: session?.user,

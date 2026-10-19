@@ -147,6 +147,11 @@ export const env = createEnv({
      * @default "true"
      */
     RATE_LIMIT_ENABLED: z.enum(["true", "false"]).default("true"),
+    /**
+     * Trust only X-Real-IP from a known reverse proxy that overwrites it.
+     * Self-hosted only; direct access to the app must be blocked.
+     */
+    TRUST_PROXY_X_REAL_IP: z.enum(["true", "false"]).default("false"),
 
     /**
      * Take the app offline for scheduled maintenance. Page traffic is
@@ -287,6 +292,7 @@ export const env = createEnv({
     APP_NAME: process.env.APP_NAME,
     HIDE_ATTRIBUTION: process.env.HIDE_ATTRIBUTION,
     RATE_LIMIT_ENABLED: process.env.RATE_LIMIT_ENABLED,
+    TRUST_PROXY_X_REAL_IP: process.env.TRUST_PROXY_X_REAL_IP,
     MAINTENANCE_MODE: process.env.MAINTENANCE_MODE,
     MAINTENANCE_BYPASS_TOKEN: process.env.MAINTENANCE_BYPASS_TOKEN,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
@@ -303,6 +309,17 @@ export const env = createEnv({
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
   createFinalSchema: (shape) =>
     z.object(shape).superRefine((env, ctx) => {
+      if (
+        env.TRUST_PROXY_X_REAL_IP === "true" &&
+        env.NEXT_PUBLIC_SELF_HOSTED !== "true"
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["TRUST_PROXY_X_REAL_IP"],
+          message:
+            "TRUST_PROXY_X_REAL_IP requires NEXT_PUBLIC_SELF_HOSTED=true and a trusted proxy that overwrites X-Real-IP with direct application access blocked.",
+        });
+      }
       // Authenticated SMTP needs both credentials; nodemailer fails at send
       // time with a cryptic "Missing credentials" error if one is missing.
       if (Boolean(env.SMTP_USER) !== Boolean(env.SMTP_PWD)) {

@@ -8,6 +8,7 @@ import { getConferencingUri } from "@/features/conferencing/utils";
 import { parseLocation } from "@/features/location/data";
 import { formatLocationText } from "@/features/location/utils";
 import { getScheduledEventCalendarData } from "@/features/scheduled-event/data";
+import { getClientIp } from "@/lib/client-ip";
 import { createRatelimit } from "@/lib/rate-limit";
 import { createIcsEvent } from "@/lib/utils/ics";
 
@@ -71,7 +72,7 @@ function toCalendarEvent(event: ScheduledEventRow): CalendarEvent {
 
 app.use("/:eventId/*", async (c, next) => {
   if (ratelimit) {
-    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+    const ip = getClientIp(c.req.raw.headers);
     const { success } = await ratelimit.limit(`api:event:${ip || "unknown"}`);
     if (!success) {
       return c.json({ error: "Too many requests" }, 429);

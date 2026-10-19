@@ -1,6 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ data: vi.fn(), limit: vi.fn() }));
+vi.mock("@/env", () => ({
+  env: { TRUST_PROXY_X_REAL_IP: "true", NEXT_PUBLIC_SELF_HOSTED: "true" },
+}));
 vi.mock("@/features/poll/finalization/data", () => ({
   getFinalizedPollCalendarData: mocks.data,
 }));
@@ -80,4 +83,22 @@ it("bounds calendar downloads before loading poll data", async () => {
   mocks.limit.mockResolvedValue({ success: false });
   expect((await GET(request, params("ics"))).status).toBe(429);
   expect(mocks.data).not.toHaveBeenCalled();
+});
+
+it("uses a stable proxy IP for calendar quotas and never falls back to a spoofed XFF chain", async () => {
+  for (const spoof of ["198.51.100.1", "198.51.100.2, 192.0.2.1"]) {
+    await GET(
+      new Request(request, {
+        headers: { "x-real-ip": "203.0.113.23", "x-forwarded-for": spoof },
+      }),
+      params("ics"),
+    );
+  }
+  expect(mocks.limit).toHaveBeenNthCalledWith(1, "poll-calendar:203.0.113.23");
+  expect(mocks.limit).toHaveBeenNthCalledWith(2, "poll-calendar:203.0.113.23");
+  await GET(
+    new Request(request, { headers: { "x-forwarded-for": "198.51.100.3" } }),
+    params("ics"),
+  );
+  expect(mocks.limit).toHaveBeenLastCalledWith("poll-calendar:unknown");
 });

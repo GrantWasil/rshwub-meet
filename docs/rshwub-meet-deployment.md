@@ -1,23 +1,43 @@
 # Rshwub Meet deployment
 
-This runbook targets one **Linode Shared CPU 4 GB / 2 vCPU server in Dallas**, with a fresh personal Openship instance at `deploy.rshwub.com` and the app at `meet.rshwub.com`. It does not change the existing work Openship instance. No infrastructure is provisioned by these files.
+This runbook targets one **Linode Shared CPU 4 GB / 2 vCPU server in Dallas**, with a fresh personal Openship instance at `deploy.rshwub.com` and the app at `meet.rshwub.com`. It does not change the existing work Openship instance. These files describe the deployment; they do not provision infrastructure by themselves.
 
-Budget selected for this project: **$24/month server + $5/month Linode Backups = $29/month**, before tax, optional email usage, and off-host object storage. Recheck the provider checkout before purchase. Resend and Cloudflare R2 have usage-based allowances/pricing; do not treat them as permanently free. One machine is a deliberate availability tradeoff: host maintenance, resource exhaustion, or an edge failure can affect all its apps. Backups enable recovery, not high availability.
+Budget selected for this project: **$24/month server + $5/month Linode Backups = $29/month**, before tax, optional email usage, and off-host object storage. Resend and Cloudflare R2 have usage-based allowances/pricing; do not treat them as permanently free. One machine is a deliberate availability tradeoff: host maintenance, resource exhaustion, or an edge failure can affect all its apps. Backups enable recovery, not high availability.
+
+## Rollout status — October 19, 2026
+
+**Public Meet deployment is still pending.** The private application passed its initial health check and both application migrations completed, before the trusted-proxy patch described below. The dashboard DNS and Cloudflare Access are active, and an unauthenticated browser receives the owner email challenge. Meet's DNS draft has not been saved. The updated image, Meet's public HTTPS, email delivery, and production recovery still require verification. Do not read the launch checklist as completed evidence.
+
+| Item | Confirmed value or current state |
+| --- | --- |
+| Server | Linode `108605606`, label `rshwub-apps`, IPv4 `96.126.112.36`, Dallas |
+| OS and size | Ubuntu 24.04.4 LTS; Shared CPU 4 GB / 2 vCPU |
+| Provider backups | Linode Backups enabled; daily window 10:00–12:00 UTC; weekly backup day Sunday |
+| Provider firewall | TCP 22 from `204.57.19.102/32`; TCP 80/443 from the 22 official Cloudflare IPv4/IPv6 ranges only |
+| Personal deployment manager | Openship 0.9.3 installed and healthy; separate from the work instance |
+| Public application | `meet.rshwub.com` through Cloudflare proxy; public access intended; DNS draft not saved |
+| Deployment dashboard | `deploy.rshwub.com` through Cloudflare proxy; Access allow policy for `dev@grantwasil.com` only is active; public owner email challenge verified |
+| Origin TLS | Manual Cloudflare Origin CA certificate issued with exactly `meet.rshwub.com` and `deploy.rshwub.com` as SANs, expiring October 15, 2041; private key stays on the host; public validation pending |
+| Application | Initial private health check and both migrations passed; the updated trusted-proxy image still requires deployment and verification |
+| Independent backup | Off-host encrypted database backup destination, credentials, timer, and production restore drill remain unconfigured/unverified |
+
+The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05:00 standard time. Enabling the service and choosing a window does not prove that its first recovery point has completed. Confirm the first successful backup in Linode after the deployment.
 
 ## Deployment contract
 
 - Build `apps/web/Dockerfile` in GitHub Actions using BuildKit, Node 24, `SELF_HOSTED=true`, and Linux amd64. Deploy the resulting **digest**, not `latest`.
 - Run one `web` process and a private PostgreSQL 18 container with its own named volume. No public database port and no shared database credentials between future apps.
 - Keep `RATE_LIMIT_ENABLED=true`. Upstream `apps/web/src/lib/rate-limit/index.ts`, API middleware and auth support memory limits when `KV_REST_API_*` is absent. Counters reset when the web process restarts and are not shared between replicas. Add a shared Upstash-compatible backend before scaling beyond one replica; do not disable limits to fix deployment problems.
+- This deployment explicitly sets `TRUST_PROXY_X_REAL_IP=true`. Enable it only when the trusted edge **overwrites** `X-Real-IP` with the verified visitor address and direct application access is blocked. The Openship edge resolves `CF-Connecting-IP` only from trusted Cloudflare ranges and forwards that result in `X-Real-IP`; the app is reachable only on loopback. The app then ignores caller-supplied XFF chains and JA4 for quota identity, and Better Auth reads only `X-Real-IP`. Missing or malformed trusted headers share a fallback quota rather than falling back to untrusted headers. The flag defaults to false elsewhere and is rejected outside self-hosted mode.
 - S3 is optional for image uploads. The initial app omits `S3_*`, so uploads are disabled. Polls and votes live in PostgreSQL. Optional uploaded assets need a separate private R2 bucket, dedicated credentials and a separate backup policy; database dumps do not include objects.
 - Preserve Rallly's AGPL license and attribution. Make the fork's complete corresponding source available to network users, with a visible source link to [this repository](https://github.com/GrantWasil/rshwub-meet) and the deployed revision. Keep this repository public, or provide an equally accessible source archive. A private GitHub Actions artifact alone does not provide public source access.
 
 ## 1. Prepare the personal server
 
-1. Provision the selected plan in Dallas with Ubuntu LTS, your personal SSH public key, and Linode Backups enabled. Record the server ID/IP and account recovery information in your password manager. Do not reuse work-instance secrets.
-2. Update the fresh OS. Enable the provider firewall: SSH only from your trusted management IP/VPN; HTTP/HTTPS for web ingress. Do not open 3000, 3100, 4000, 5432 or other internal service ports publicly. Keep IPv6 firewall rules consistent if using IPv6. Provider-level filtering matters because Docker-published ports can bypass host UFW rules.
+1. Use the existing server recorded above; do not provision a second machine. Keep account recovery information and SSH credentials in your password manager. Do not reuse work-instance secrets.
+2. Update the fresh OS. Preserve the provider firewall: SSH only from the recorded management IP and HTTP/HTTPS only from [Cloudflare's official ranges](https://www.cloudflare.com/ips/). Review those ranges when Cloudflare changes them. If the management IP changes, update the SSH allowlist through the provider console before relying on the new connection. Do not open 3000, 3100, 4000, 5432 or other internal service ports publicly. Keep IPv6 firewall rules consistent if using IPv6. Provider-level filtering matters because Docker-published ports can bypass host UFW rules.
 3. Install Docker Engine with Compose and Buildx using [Docker's Ubuntu instructions](https://docs.docker.com/engine/install/ubuntu/). Configure bounded Docker logs on this fresh host (for example the `local` driver, or `json-file` with `max-size=10m`, `max-file=3`), preserving any existing daemon settings.
-4. Install a pinned Openship release from [the installation guide](https://openship.io/docs/getting-started/installation). Version 0.9.3 was the latest release checked on October 19, 2026; review current release notes before choosing the pin. Use the guided `openship` setup on Linux with Docker so it provisions the supported Compose stack and its host-control channel. Do not run the repository-root `docker-compose.yml`, which is a different stack. The personal control-plane database, credentials and backups must be independent of the work instance.
+4. Complete the pinned Openship 0.9.3 personal installation using [the installation guide](https://openship.io/docs/getting-started/installation). Use its supported Linux Docker stack and host-control channel. Do not run the repository-root `docker-compose.yml`, which is a different stack. The personal control-plane database, credentials and backups must be independent of the work instance. Review release notes deliberately before future upgrades.
 5. Use a strong unique admin login and MFA. Connect only the personal `GrantWasil/rshwub-meet` repository and required credentials. Treat dashboard/SSH/Docker access as host administration access.
 
 The full Openship stack includes its own PostgreSQL, Redis, API, dashboard and edge. Our application database is separate. Builds stay in GitHub Actions so they do not compete with these services on the 4 GB server. Start with only this app; measure actual memory/disk use before adding more. Upgrade if normal memory use is persistently above roughly 75% or the host swaps under routine load.
@@ -26,13 +46,25 @@ The full Openship stack includes its own PostgreSQL, Redis, API, dashboard and e
 
 In the personal Cloudflare account owning `rshwub.com`:
 
-1. Add `deploy` and `meet` DNS records pointing to this server. Add an AAAA record only if IPv6 is configured and reachable. Do not alter unrelated subdomains.
-2. Configure `deploy.rshwub.com` during Openship setup and `meet.rshwub.com` on the application's web service. Openship manages the edge and certificates. Follow its [domain guide](https://openship.io/docs/guides/custom-domains); if using HTTP certificate validation, ensure its challenge path reaches the origin.
-3. For ordinary Cloudflare proxying, enable **Full (strict)** only with a valid origin certificate. Do not use Flexible SSL. Alternatively, Openship supports [Cloudflare Tunnel ingress](https://openship.io/docs/guides/cloudflare-tunnel), which needs separate setup and scoped permissions. Choose one ingress method and verify it end to end.
-4. Protect `deploy.rshwub.com` with Cloudflare Access restricted to your personal identity. Leave `meet.rshwub.com` public so guests can create and vote. This workflow publishes images but does not need a public deployment webhook. If adding automatic deploys later, explicitly arrange authenticated webhook access without bypassing protection for the whole dashboard.
+1. Save proxied `deploy` and `meet` A records pointing to `96.126.112.36` only after their origin routes are ready. Add an AAAA record only if IPv6 is configured and reachable. Do not alter unrelated subdomains. Direct DNS-only ingress is incompatible with the Cloudflare-only origin firewall.
+2. Configure `deploy.rshwub.com` during Openship setup and `meet.rshwub.com` on the application's web service. Openship manages the edge routing; this deployment supplies a **manual Cloudflare Origin CA certificate** for exactly these two hostnames. Generate and retain its private key on the host, submit only the CSR to Cloudflare, and install the returned public certificate with that key. Do not paste private keys into this repository, shared logs, or chat.
+3. Enable **Full (strict)** once that origin certificate and both hostname routes validate. Keep Cloudflare proxying enabled: an Origin CA certificate is for the Cloudflare-to-origin connection, not direct browser trust. This topology uses neither Cloudflare Tunnel nor ACME issuance/renewal. Do not add an Access bypass for `/.well-known/acme-challenge/`; there is no ACME challenge in this flow.
+4. Preserve the active Cloudflare Access application for `deploy.rshwub.com`, allowing only `dev@grantwasil.com`. After DNS activation, verify that an unauthenticated visitor is challenged and the intended owner can reach Openship login. Leave `meet.rshwub.com` outside that Access application so guests can create and vote. The image workflow does not need a public deployment webhook. If adding automatic deploys later, explicitly arrange authenticated webhook access without bypassing protection for the whole dashboard.
 5. Verify that the edge overwrites/trusts forwarding headers correctly for Cloudflare, and that app rate-limit keys use the actual visitor IP. Follow the [trusted proxy guidance](https://openship.io/docs/guides/the-edge). Test two independent clients and an untrusted supplied forwarding header; saving proxy settings alone is not verification.
 
-Keep DNS tokens scoped to this zone; add tunnel/access permissions only if those features are used. Keep cookies scoped to `meet.rshwub.com` (leave `NEXT_PUBLIC_COOKIE_DOMAIN` unset).
+Keep DNS tokens scoped to this zone and add Access permissions only when needed. Keep cookies scoped to `meet.rshwub.com` (leave `NEXT_PUBLIC_COOKIE_DOMAIN` unset).
+
+### Manual origin certificate installation and renewal
+
+The following paths and behavior are confirmed from the Openship 0.9.3 deployment implementation; successful public routing remains to be verified:
+
+- Host-side inputs: `/root/rshwub-deploy/tls/origin.key` (root-owned, mode `0600`), `/root/rshwub-deploy/tls/origin.csr` (public CSR), and `/root/rshwub-deploy/tls/origin-cert.pem` (signed public certificate).
+- After the two domain routes exist, upload the same certificate/key pair for **each domain ID** with `openship domain upload-cert DOMAIN_ID --cert /root/rshwub-deploy/tls/origin-cert.pem --key /root/rshwub-deploy/tls/origin.key`, or its `POST /api/domains/:id/certificate` equivalent through the private control-plane connection. Use the actual domain IDs; do not substitute hostnames where an ID is expected.
+- Openship writes each domain's files on the resolved edge executor at `/etc/letsencrypt/live/<hostname>/fullchain.pem` and `privkey.pem`, sets the private key to `0600`, and activates/reloads that domain's existing route. The directory name does not imply ACME manages these files. The domain record should show `manualSsl: true`, `sslStatus: active`, issuer `manual`, and the correct expiration date.
+- Record the actual certificate expiry and arrange an alert before it expires. Manual certificates are excluded from Openship's ACME issuance/renewal jobs; neither Cloudflare Access nor an Openship restart renews this certificate. Before expiry, generate a replacement CSR/key on the host or use the existing protected key, obtain a replacement Origin CA certificate with the same two SANs, then re-upload it for **both** domain IDs. Verify each live TLS route after reload before revoking any superseded certificate.
+- Keep the private key on the host during provisioning and never expose it in command output. Include the installed certificate/key and domain configuration in protected encrypted recovery backups. After host loss, either restore those protected files or generate a new host-side key and issue a replacement certificate. An application database dump alone does not restore edge TLS.
+
+Validate the public Cloudflare HTTPS endpoint and the origin certificate chain/hostname separately. A successful upload response or `sslStatus: active` is not sufficient launch evidence; Cloudflare must reach the origin using Full (strict), both public hostnames must route correctly, and only the deployment dashboard must require Access.
 
 ## 3. Resend email
 
@@ -72,7 +104,9 @@ Optional R2 assets: add `S3_BUCKET_NAME`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3
 
 ## 5. Independent encrypted database backups
 
-Linode Backups are useful whole-machine recovery points; add daily logical PostgreSQL backups to a separate account/provider destination. The included systemd timer works without the Openship scheduler. It uses `pg_dump`'s consistent snapshot, encrypts directly to age, uploads to S3/R2, and verifies object size. No plaintext database dump is written to the server. It does not back up the Openship control plane, optional asset objects, or deployment secrets.
+Linode Backups are enabled for whole-machine recovery points on the schedule recorded above. **Independent encrypted database backups are not yet configured.** Provider backups do not establish a second-provider copy, prove a PostgreSQL restore, or preserve recovery credentials outside the server. Complete the following setup before marking off-host recovery ready.
+
+Add daily logical PostgreSQL backups to a separate account/provider destination. The included systemd timer works without the Openship scheduler. It uses `pg_dump`'s consistent snapshot, encrypts directly to age, uploads to S3/R2, and verifies object size. No plaintext database dump is written to the server. It does not back up the Openship control plane, optional asset objects, or deployment secrets.
 
 On a trusted local machine with age installed, generate an encryption identity:
 
@@ -106,6 +140,8 @@ sudo systemctl enable --now rshwub-meet-backup.timer
 The schedule is 09:15 UTC daily (03:15 Colorado daylight time / 02:15 standard time), plus up to 10 minutes of jitter. Check `systemctl list-timers` and the most recent object. Configure an external alert for backup failure or no fresh successful backup within 26 hours; a timer being active is not evidence of recovery readiness. Also back up Openship configuration/credentials using its supported instance backup/migration tools and store the recovery secret securely.
 
 ## 6. Restore drill and recovery
+
+A local rehearsal on October 19, 2026 successfully encrypted the isolated development database and restored all 33 public tables into disposable PostgreSQL 18 using `scripts/rshwub-restore-check.sh`. The disposable resources were removed and the development volume preserved. This verifies the local script/format path only; it is not a production backup, an off-host upload test, or a production restore drill. Its temporary age identity must not become the production backup identity.
 
 At launch and after schema/storage changes, download one encrypted object and its `.sha256` companion from the backup bucket to a trusted recovery machine. Check the checksum (`sha256sum -c <file>.sha256`, or `shasum -a 256 -c` on macOS), then run:
 

@@ -1,6 +1,7 @@
 import type { CalendarEvent } from "calendar-link";
 import { google, office365, outlook, yahoo } from "calendar-link";
 import { getFinalizedPollCalendarData } from "@/features/poll/finalization/data";
+import { getClientIp } from "@/lib/client-ip";
 import { createRatelimit } from "@/lib/rate-limit";
 import { createIcsEvent } from "@/lib/utils/ics";
 
@@ -14,8 +15,7 @@ export async function GET(
   const { pollId, format } = await params;
   if (format !== "ics" && !Object.hasOwn(calendarLinks, format))
     return new Response("Not found", { status: 404 });
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(request.headers) ?? "unknown";
   if (limiter && !(await limiter.limit(`poll-calendar:${ip}`)).success)
     return new Response("Please try again later", { status: 429 });
   const event = await getFinalizedPollCalendarData(pollId);

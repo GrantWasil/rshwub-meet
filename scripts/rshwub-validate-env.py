@@ -39,6 +39,8 @@ for key in ("SUPPORT_EMAIL", "NOREPLY_EMAIL", "INITIAL_ADMIN_EMAIL"):
         errors.append(f"{key} must be a valid email address")
 if values.get("MAINTENANCE_MODE") not in ("true", "false"):
     errors.append("MAINTENANCE_MODE must be true or false")
+if values.get("TRUST_PROXY_X_REAL_IP") != "true":
+    errors.append("TRUST_PROXY_X_REAL_IP must be true for this deployment's trusted edge; it must overwrite X-Real-IP and block direct application access")
 if path.stat().st_mode & 0o077:
     errors.append("env file must not be readable or writable by group/others (chmod 600)")
 if errors:

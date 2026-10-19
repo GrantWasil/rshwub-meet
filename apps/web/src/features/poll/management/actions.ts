@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import * as z from "zod";
 import { getUser } from "@/features/user/data";
 import { getSessionState } from "@/lib/auth";
+import { getClientIp } from "@/lib/client-ip";
 import { AppError } from "@/lib/errors/app-error";
 import { createRatelimit } from "@/lib/rate-limit";
 import { actionClient } from "@/lib/safe-action/server";
@@ -22,8 +23,7 @@ const pollIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
 
 async function limitRequests(pollId: string) {
   const requestHeaders = await headers();
-  const ip =
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(requestHeaders) ?? "unknown";
   if (limiter && !(await limiter.limit(`management:${ip}:${pollId}`)).success) {
     throw new AppError({
       code: "TOO_MANY_REQUESTS",

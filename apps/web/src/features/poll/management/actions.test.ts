@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
   limit: vi.fn(),
   setCookie: vi.fn(),
   cookieValues: new Map<string, string>(),
+  requestHeaders: new Headers(),
+}));
+vi.mock("@/env", () => ({
+  env: { TRUST_PROXY_X_REAL_IP: "true", NEXT_PUBLIC_SELF_HOSTED: "true" },
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
@@ -19,7 +23,7 @@ vi.mock("next/headers", () => ({
     },
     set: mocks.setCookie,
   }),
-  headers: async () => new Headers({ "x-forwarded-for": "203.0.113.23" }),
+  headers: async () => mocks.requestHeaders,
 }));
 vi.mock("@/lib/auth", () => ({ getSessionState: mocks.session }));
 vi.mock("@/features/user/data", () => ({ getUser: mocks.user }));
@@ -63,6 +67,7 @@ const records = new Map<string, Record>();
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.cookieValues.clear();
+  mocks.requestHeaders = new Headers({ "x-real-ip": "203.0.113.23" });
   records.clear();
   records.set("poll-a", {
     id: "poll-a",
@@ -98,6 +103,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("organizer capability issuance", () => {
+  it("keeps organizer rate limits tied to the trusted visitor despite spoofed XFF", async () => {
+    for (const spoof of ["198.51.100.1", "198.51.100.2, 192.0.2.1"]) {
+      mocks.requestHeaders.set("x-forwarded-for", spoof);
+      await issuePollManagementLinkAction({ pollId: "poll-a", replace: false });
+    }
+    expect(mocks.limit).toHaveBeenNthCalledWith(
+      1,
+      "management:203.0.113.23:poll-a",
+    );
+    expect(mocks.limit).toHaveBeenNthCalledWith(
+      2,
+      "management:203.0.113.23:poll-a",
+    );
+  });
   it("mints a strong token for the authenticated owner and persists only its hash", async () => {
     const result = await issuePollManagementLinkAction({
       pollId: "poll-a",

@@ -31,6 +31,8 @@ services:
       EMAIL_LOGIN_ENABLED: "true"
       REGISTRATION_ENABLED: "true"
       RATE_LIMIT_ENABLED: "true"
+      # The edge must overwrite X-Real-IP; direct app access must stay blocked.
+      TRUST_PROXY_X_REAL_IP: ${TRUST_PROXY_X_REAL_IP:?Confirm the trusted proxy configuration}
       MAINTENANCE_MODE: ${MAINTENANCE_MODE:-false}
       MAINTENANCE_BYPASS_TOKEN: ${MAINTENANCE_BYPASS_TOKEN:?Generate a maintenance token}
       HIDE_ATTRIBUTION: "false"
