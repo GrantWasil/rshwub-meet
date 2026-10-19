@@ -34,7 +34,7 @@ for key in ("POSTGRES_PASSWORD", "SECRET_PASSWORD", "MAINTENANCE_BYPASS_TOKEN"):
         errors.append(f"{key} must be a generated 64-character hex secret")
 if not re.fullmatch(r"re_[A-Za-z0-9_-]+", values.get("SMTP_PWD", "")):
     errors.append("SMTP_PWD must be a Resend API key")
-for key in ("SUPPORT_EMAIL", "NOREPLY_EMAIL"):
+for key in ("SUPPORT_EMAIL", "NOREPLY_EMAIL", "INITIAL_ADMIN_EMAIL"):
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", values.get(key, "")):
         errors.append(f"{key} must be a valid email address")
 if values.get("MAINTENANCE_MODE") not in ("true", "false"):

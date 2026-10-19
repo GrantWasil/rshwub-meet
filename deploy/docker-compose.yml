@@ -27,6 +27,7 @@ services:
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:?Set an address that receives support mail}
       NOREPLY_EMAIL: ${NOREPLY_EMAIL:?Set a sender on your verified Resend domain}
       NOREPLY_EMAIL_NAME: Rshwub Meet
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?Set the owner's administrator email}
       EMAIL_LOGIN_ENABLED: "true"
       REGISTRATION_ENABLED: "true"
       RATE_LIMIT_ENABLED: "true"

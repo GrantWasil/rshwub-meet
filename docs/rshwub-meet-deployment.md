@@ -42,6 +42,8 @@ The manifest uses `smtp.resend.com`, user `resend`, and a sending API key as `SM
 
 After deployment, verify receipt of an actual sign-in code at an external mailbox and check Resend's delivery result. A healthy web container does not prove email works. Record the sending quota and configure provider usage alerts.
 
+Set `INITIAL_ADMIN_EMAIL=dev@grantwasil.com` before launch. After signing in with that verified address, visit `/admin-setup` to claim the app's administrator role. Other addresses cannot claim it. This account is separate from the Openship administrator.
+
 ## 4. Publish and configure the application
 
 The [image workflow](../.github/workflows/rshwub-image.yml) runs on `main`, the fork's `rshwub-meet` branch, `meet-v*` tags, or manual dispatch in `GrantWasil/rshwub-meet`. It uses pinned action commits and publishes `ghcr.io/grantwasil/rshwub-meet:sha-<commit>`, an SBOM/provenance record, and a matching source artifact. It does not deploy or change DNS. The upstream Dockerfile has moving base/dependency references; digest-pinning the published result makes deployment reproducible, not the entire build toolchain.
