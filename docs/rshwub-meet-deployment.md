@@ -6,22 +6,24 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 
 ## Rollout status — October 19, 2026
 
-**Public Meet deployment is still pending.** The private application passed its initial health check and both application migrations completed, before the trusted-proxy patch described below. The dashboard DNS and Cloudflare Access are active, and an unauthenticated browser receives the owner email challenge. Meet's DNS draft has not been saved. The updated image, Meet's public HTTPS, email delivery, and production recovery still require verification. Do not read the launch checklist as completed evidence.
+**Meet is live at https://meet.rshwub.com.** Revision `82b924a42678678484150bddb9eeb04e09bd4149` is deployed; the public status endpoint returns HTTP 200 with the database connected. Both scheduling modes, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the checks below. Resend reports the owner's sign-in email delivered; owner inbox/code confirmation and app administrator setup remain pending. The first Linode snapshot is running, and independent off-host backups remain unconfigured. A restore check without a retained archive is not a recovery point.
 
 | Item | Confirmed value or current state |
 | --- | --- |
 | Server | Linode `108605606`, label `rshwub-apps`, IPv4 `96.126.112.36`, Dallas |
 | OS and size | Ubuntu 24.04.4 LTS; Shared CPU 4 GB / 2 vCPU |
-| Provider backups | Linode Backups enabled; daily window 10:00–12:00 UTC; weekly backup day Sunday |
+| Provider backups | Linode Backups enabled; daily window 10:00–12:00 UTC; weekly backup day Sunday; launch snapshot running, first completed recovery point pending |
 | Provider firewall | TCP 22 from `204.57.19.102/32`; TCP 80/443 from the 22 official Cloudflare IPv4/IPv6 ranges only |
 | Personal deployment manager | Openship 0.9.3 installed and healthy; separate from the work instance |
-| Public application | `meet.rshwub.com` through Cloudflare proxy; public access intended; DNS draft not saved |
-| Deployment dashboard | `deploy.rshwub.com` through Cloudflare proxy; Access allow policy for `dev@grantwasil.com` only is active; public owner email challenge verified |
-| Origin TLS | Manual Cloudflare Origin CA certificate issued with exactly `meet.rshwub.com` and `deploy.rshwub.com` as SANs, expiring October 15, 2041; private key stays on the host; public validation pending |
-| Application | Initial private health check and both migrations passed; the updated trusted-proxy image still requires deployment and verification |
-| Independent backup | Off-host encrypted database backup destination, credentials, timer, and production restore drill remain unconfigured/unverified |
+| Public application | Proxied `meet` A record points to `96.126.112.36`; public HTTPS and `/api/status` verified |
+| Deployment dashboard | `deploy.rshwub.com` through Cloudflare proxy; Access allow policy for `dev@grantwasil.com` only is active; Access challenge and owner Openship login verified |
+| Origin TLS | Both hostname routes verified with Cloudflare Full (strict); manual Origin CA certificate has exactly these two SANs and expires October 15, 2041; private key stays on the host |
+| Application | Trusted-proxy revision `82b924a` live; no unfinished migrations; web 1 GiB / 1 CPU, database 768 MiB / 0.75 CPU confirmed |
+| Database storage | Existing `openship-rshwub-meet-db-data` volume preserved; no public database ports |
+| Recovery verification | Consistent production snapshot restored into a disposable isolated database; all 33 table counts and selected QA content matched; no archive retained |
+| Independent backup | Off-host encrypted database destination, credentials, timer, and retained-backup restore remain unconfigured/unverified |
 
-The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05:00 standard time. Enabling the service and choosing a window does not prove that its first recovery point has completed. Confirm the first successful backup in Linode after the deployment.
+The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05:00 standard time. Snapshot `rshwub-meet-launch-2026-10-19` was initiated at 23:44 UTC on October 19 and currently reports **Running**. This is not a completed recovery point; confirm successful completion in Linode.
 
 ## Deployment contract
 
@@ -42,6 +44,12 @@ The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05
 
 The full Openship stack includes its own PostgreSQL, Redis, API, dashboard and edge. Our application database is separate. Builds stay in GitHub Actions so they do not compete with these services on the 4 GB server. Start with only this app; measure actual memory/disk use before adding more. Upgrade if normal memory use is persistently above roughly 75% or the host swaps under routine load.
 
+### Local deployment recovery
+
+The deployment Mac reboot removed `/tmp/rshwub-meet-deploy`; the Linode kept running. Recovery material now lives at `~/.local/share/rshwub-meet-deploy` (directory mode `0700`): `known_hosts`, `openship-admin-password.txt` (mode `0600`), `03-openship-domains.py`, and `RECOVERY.md`. The Openship login was also saved in the owner's 1Password Private vault. Keep secrets out of this repository and shared output. Use the recorded SSH identity and pinned `known_hosts` with `StrictHostKeyChecking=yes`; do not routinely discard host pins or accept a changed key to reconnect. The helper runs on the VPS through its private control-plane connection.
+
+Use durable protected storage for deployment credentials and host identity, and keep an encrypted recovery copy outside the deployment machine. `/tmp` is only scratch space. This local recovery directory does not constitute a database backup or a backup of the Openship control plane.
+
 ## 2. Domains and HTTPS
 
 In the personal Cloudflare account owning `rshwub.com`:
@@ -54,12 +62,15 @@ In the personal Cloudflare account owning `rshwub.com`:
 
 Keep DNS tokens scoped to this zone and add Access permissions only when needed. Keep cookies scoped to `meet.rshwub.com` (leave `NEXT_PUBLIC_COOKIE_DOMAIN` unset).
 
+For Openship's own browser authentication, set `OPENSHIP_PUBLIC_URL=https://deploy.rshwub.com` in the **control-plane** `.env`. Browser login succeeded after adding this value and recreating the API and dashboard containers so both read it. Preserve it during upgrades and recovery; changing the app's `NEXT_PUBLIC_BASE_URL` does not configure Openship. Verify owner login through Cloudflare Access after a control-plane restart. This dashboard check does not establish that Meet is publicly deployed.
+
 ### Manual origin certificate installation and renewal
 
-The following paths and behavior are confirmed from the Openship 0.9.3 deployment implementation; successful public routing remains to be verified:
+The following paths and behavior are confirmed for Openship 0.9.3; both public hostname routes and origin TLS were verified during launch:
 
 - Host-side inputs: `/root/rshwub-deploy/tls/origin.key` (root-owned, mode `0600`), `/root/rshwub-deploy/tls/origin.csr` (public CSR), and `/root/rshwub-deploy/tls/origin-cert.pem` (signed public certificate).
 - After the two domain routes exist, upload the same certificate/key pair for **each domain ID** with `openship domain upload-cert DOMAIN_ID --cert /root/rshwub-deploy/tls/origin-cert.pem --key /root/rshwub-deploy/tls/origin.key`, or its `POST /api/domains/:id/certificate` equivalent through the private control-plane connection. Use the actual domain IDs; do not substitute hostnames where an ID is expected.
+- On the initial Meet deployment, attaching the app route after an earlier certificate upload left HTTPS inactive. Re-uploading the manual certificate after route attachment activated port 443. Preserve this ordering during recovery and verify the actual TLS listener; an already-populated certificate record alone is insufficient.
 - Openship writes each domain's files on the resolved edge executor at `/etc/letsencrypt/live/<hostname>/fullchain.pem` and `privkey.pem`, sets the private key to `0600`, and activates/reloads that domain's existing route. The directory name does not imply ACME manages these files. The domain record should show `manualSsl: true`, `sslStatus: active`, issuer `manual`, and the correct expiration date.
 - Record the actual certificate expiry and arrange an alert before it expires. Manual certificates are excluded from Openship's ACME issuance/renewal jobs; neither Cloudflare Access nor an Openship restart renews this certificate. Before expiry, generate a replacement CSR/key on the host or use the existing protected key, obtain a replacement Origin CA certificate with the same two SANs, then re-upload it for **both** domain IDs. Verify each live TLS route after reload before revoking any superseded certificate.
 - Keep the private key on the host during provisioning and never expose it in command output. Include the installed certificate/key and domain configuration in protected encrypted recovery backups. After host loss, either restore those protected files or generate a new host-side key and issue a replacement certificate. An application database dump alone does not restore edge TLS.
@@ -75,6 +86,8 @@ The manifest uses `smtp.resend.com`, user `resend`, and a sending API key as `SM
 After deployment, verify receipt of an actual sign-in code at an external mailbox and check Resend's delivery result. A healthy web container does not prove email works. Record the sending quota and configure provider usage alerts.
 
 Set `INITIAL_ADMIN_EMAIL=dev@grantwasil.com` before launch. After signing in with that verified address, visit `/admin-setup` to claim the app's administrator role. Other addresses cannot claim it. This account is separate from the Openship administrator.
+
+Launch status: Resend reports sign-in email `01a1568c-0366-76a5-80eb-f5251efe81fe` to `dev@grantwasil.com` as **DELIVERED**, sent using the restricted SMTP credential. Owner inbox confirmation/code entry, completed app sign-in, and the administrator claim are still pending. Openship login does not complete these application steps.
 
 ## 4. Publish and configure the application
 
@@ -143,6 +156,8 @@ The schedule is 09:15 UTC daily (03:15 Colorado daylight time / 02:15 standard t
 
 A local rehearsal on October 19, 2026 successfully encrypted the isolated development database and restored all 33 public tables into disposable PostgreSQL 18 using `scripts/rshwub-restore-check.sh`. The disposable resources were removed and the development volume preserved. This verifies the local script/format path only; it is not a production backup, an off-host upload test, or a production restore drill. Its temporary age identity must not become the production backup identity.
 
+The launch additionally tested the real production database: a consistent exported snapshot was dumped and restored into an isolated disposable database with no network and a 512 MiB memory limit. All 33 table counts matched, along with selected QA content (two polls, two options, two participants, two votes, and one comment). The disposable container and volume were removed. No archive was written or retained and no off-host backup was configured; this proves the tested snapshot could restore, not that there is a usable backup to recover from later. A production web restart separately preserved all selected QA fields.
+
 At launch and after schema/storage changes, download one encrypted object and its `.sha256` companion from the backup bucket to a trusted recovery machine. Check the checksum (`sha256sum -c <file>.sha256`, or `shasum -a 256 -c` on macOS), then run:
 
 ```sh
@@ -162,15 +177,18 @@ For real recovery:
 
 Never assume an application-image rollback reverses Prisma migrations. Before updates, trigger and verify an independent backup; record the old and new image digests and review migration compatibility. If the old app cannot read the new schema, recovery requires a compatible forward fix or a separate database restore with an explicit decision about post-backup data loss.
 
-## Launch evidence
+## Launch evidence — October 19, 2026
 
-Record the reviewed commit, image digests, Openship version, server ID, database volume, and backup timestamp without secrets. Confirm:
+The deployed image is `ghcr.io/grantwasil/rshwub-meet@sha256:a65edd7cd2c6c0d473d665454f3df05a495ce915930a6f810012520342d3e02a`, built from revision `82b924a42678678484150bddb9eeb04e09bd4149` by [workflow run 39341356729](https://github.com/GrantWasil/rshwub-meet/actions/runs/39341356729). The non-secret operational evidence is retained locally at `~/.local/share/rshwub-meet-deploy/release-verification-82b924a.json` (recorded at 23:35:23 UTC).
 
-- HTTPS and redirects work on the exact public hostname; the admin hostname requires both the intended Access policy and Openship authentication.
-- Public creation, private management link, guest voting/editing, both scheduling modes, mobile drag, timezone/DST handling, comments, finalizing and calendar export work.
-- Optional email sign-in arrives at an external mailbox; a fresh session does not gain organizer privileges without its management link.
-- App/database health and actual resource bounds pass, internal ports are unreachable externally, client-IP handling is correct, and rate limits remain enabled.
-- A restart/redeploy retains a known poll and votes, the scheduled backup completes, and the latest encrypted backup restores successfully.
-- Source attribution resolves to the deployed fork revision, and recovery secrets are stored outside the VPS.
+Verified:
 
-Local syntax/config validation is not a live deployment check. The image workflow, provider connectivity, Openship import, TLS/email delivery, resource use and restore drill must be verified on the configured systems before calling this deployed.
+- Public `https://meet.rshwub.com/api/status` returned HTTP 200, database connected, and version `4.15.5-rshwub.82b924a42678678484150bddb9eeb04e09bd4149`. Both hostnames use valid origin TLS through Cloudflare Full (strict); the dashboard requires Access and its own login.
+- Actual container resource limits match the table above. Web binds to `127.0.0.1:3100`; the database has no public ports. Direct checks from the management Mac reached SSH only, with ports 80, 443, 3001, 3100, 4000 and 5432 unreachable. An actual request with forged forwarding headers still reached the app with the verified visitor IP in `X-Real-IP`; the trusted-proxy flag is enabled.
+- Classic and availability guest creation, voting/editing, comments, and results passed browser checks. Availability selection covered an eight-cell desktop drag, keyboard Space with Yes/Maybe/No, and tapping/range editing in a 390-pixel viewport. Denver 17:00–18:00 and New York 19:00–20:00 represented the same instants. Synthetic touch commands were unsupported, so this does not establish real-device touch or DST-transition behavior.
+- The native time input responded correctly to ArrowDown, changing 23:00 to 22:00; the form was then reloaded to its default. An earlier automation fill result was not representative of native input behavior. Browser QA console error/warning logs were empty.
+- Both private organizer links redeemed after clearing the five Meet cookies, then cleared their URL fragments. Participant recovery data remained in local storage, so this was fresh authentication, not a fully independent browser identity. Separate HTTP checks sent no cookies: both public polls reported `canManage: false`, organizer/edit routes denied access or redirected, wrong tokens were forbidden, and no management cookie was issued on rejection.
+- Both poll modes finalized and exported the expected ICS instants: classic October 23, 2026 18:00–19:00 UTC; availability October 23 23:00 through October 24 00:00 UTC. Reopening preserved responses, and both final-time ICS endpoints returned 404. Calendar files already downloaded are not retracted by reopening or deleting a poll.
+- Production web-restart persistence and the isolated production snapshot restore passed as described above. The availability QA poll was soft-deleted through the UI; a fresh browser showed Page not found and its ICS endpoint returned HTTP 404. The streamed page itself returned HTTP 200, so the status code alone does not establish whether a poll is visible. The classic QA poll was reopened with votes preserved, then closed through the UI so it accepts no further responses. It remains as a disposable test record. Fresh browser reloads or availability's Refresh results are needed when comparing sessions; results are not pushed live.
+
+Still outstanding: confirm the owner's actual OTP receipt/code entry, complete optional account sign-in and `/admin-setup`, confirm successful completion of the running Linode snapshot, and configure then test independent encrypted off-host backups. The closed classic QA record is retained for now. Keep the public source link pointed at the corresponding deployed revision. Do not describe the restore drill as a retained backup or report real-device touch testing as complete.
