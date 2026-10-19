@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly independent Rshwub Meet database backup
+
+[Timer]
+OnCalendar=*-*-* 09:15:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+Unit=rshwub-meet-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -14,10 +14,12 @@ import { Trans } from "@/i18n/client";
 
 export function AddToCalendarButton({
   eventId,
+  calendarPath,
   size,
   className,
 }: {
   eventId: string;
+  calendarPath?: string;
   size?: React.ComponentProps<typeof Button>["size"];
   className?: string;
 }) {
@@ -30,7 +32,7 @@ export function AddToCalendarButton({
         <Trans i18nKey="addToCalendar" defaults="Add to calendar" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <AddToCalendarMenuItems eventId={eventId} />
+        <AddToCalendarMenuItems eventId={eventId} calendarPath={calendarPath} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

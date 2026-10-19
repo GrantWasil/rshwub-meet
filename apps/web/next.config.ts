@@ -7,14 +7,19 @@ import path from "node:path";
 import createBundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
+import { guardNextWorkload } from "./scripts/next-workload-guard";
 
 const withBundleAnalyzer = createBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
 const nextConfig: NextConfig = {
+  // Optional build output location; the shared workload guard still forbids overlap.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   allowedDevOrigins: [process.env.DEV_DOMAIN ?? "web.rallly.test"],
   experimental: {
+    // Keep page-data collection and static generation within this Mac's budget.
+    cpus: 2,
     staleTimes: {
       dynamic: 60,
     },
@@ -184,6 +189,12 @@ const withBundleAnalyzerConfig = withBundleAnalyzer(nextConfig);
 
 // Make sure adding Sentry options is the last code to run before exporting, to
 // ensure that your source maps include changes from all other Webpack plugins
-export default process.env.NEXT_PUBLIC_SELF_HOSTED === "true"
-  ? withBundleAnalyzerConfig
-  : withSentryConfig(withBundleAnalyzerConfig, sentryWebpackPluginOptions);
+const configuredNextConfig =
+  process.env.NEXT_PUBLIC_SELF_HOSTED === "true"
+    ? withBundleAnalyzerConfig
+    : withSentryConfig(withBundleAnalyzerConfig, sentryWebpackPluginOptions);
+
+export default async function config(phase: string) {
+  await guardNextWorkload(__dirname, phase);
+  return configuredNextConfig;
+}

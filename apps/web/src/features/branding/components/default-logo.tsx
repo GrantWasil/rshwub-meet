@@ -14,13 +14,13 @@ export function DefaultLogo({ className }: { className?: string }) {
     >
       {/* biome-ignore lint/performance/noImgElement: we don't need Image component here */}
       <img
-        src="/static/logo.svg"
+        src="/static/rshwub-meet.svg"
         alt={DEFAULT_APP_NAME}
         className="block max-h-full max-w-full object-contain dark:hidden"
       />
       {/* biome-ignore lint/performance/noImgElement: we don't need Image component here */}
       <img
-        src="/static/logo-dark.svg"
+        src="/static/rshwub-meet-dark.svg"
         alt={DEFAULT_APP_NAME}
         className="hidden max-h-full max-w-full object-contain dark:block"
       />

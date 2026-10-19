@@ -271,6 +271,9 @@ export async function deleteInactivePolls() {
   const { count: markedDeleted } = await prisma.poll.updateMany({
     where: {
       deleted: false,
+      // Availability dates live in JSON until finalization; zero options
+      // must never be interpreted as all dates having passed.
+      schedulingMode: "options",
       // All poll dates passed at least 30 days ago
       options: {
         none: {

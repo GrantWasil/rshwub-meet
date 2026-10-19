@@ -18,6 +18,7 @@ import { usePoll } from "@/features/poll/client";
 import { InviteByEmail } from "@/features/poll/components/invite-by-email";
 import { InviteLinkRow } from "@/features/poll/components/invite-link-row";
 import { SHARE_POLL_FLASH_KEY } from "@/features/poll/constants";
+import { PollManagementLink } from "@/features/poll/management/components/poll-management-link";
 import { Trans } from "@/i18n/client";
 import { useFlash } from "@/lib/flash/client";
 
@@ -74,6 +75,7 @@ export function ShareDialog() {
           <InviteLinkRow inviteLink={poll.inviteLink} />
           <Separator />
           <InviteByEmail />
+          <PollManagementLink pollId={poll.id} />
         </DialogContent>
       </Dialog>
     </>

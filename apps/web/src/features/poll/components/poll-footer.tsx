@@ -24,13 +24,20 @@ export function PollFooter({
 
   const isAttributionHidden = hideAttribution || poll.space?.hideAttribution;
 
-  if (isAttributionHidden && footerLinks.length === 0) {
-    return null;
-  }
-
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center text-muted-foreground text-sm">
       <InstanceFooterLinks links={footerLinks} />
+      <a
+        className="hover:underline"
+        href="https://github.com/GrantWasil/rshwub-meet"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <Trans
+          i18nKey="rshwubMeetSource"
+          defaults="Rshwub Meet · Source code"
+        />
+      </a>
       {isAttributionHidden ? null : (
         <div>
           <Trans

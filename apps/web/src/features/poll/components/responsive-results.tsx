@@ -79,7 +79,10 @@ export function ResponsiveResults() {
             />
           </EmptyStateDescription>
           <EmptyStateFooter className="flex flex-wrap items-center justify-center gap-2">
-            <AddToCalendarButton eventId={poll.event.id} />
+            <AddToCalendarButton
+              eventId={poll.event.id}
+              calendarPath={poll.event.calendarPath}
+            />
             <Button onClick={() => setDismissed(true)}>
               <Trans i18nKey="viewResults" defaults="View results" />
             </Button>

@@ -72,7 +72,7 @@ export const env = createEnv({
      */
     SUPPORT_EMAIL: z.email(),
     NOREPLY_EMAIL: z.email().optional(),
-    NOREPLY_EMAIL_NAME: z.string().default("Rallly"),
+    NOREPLY_EMAIL_NAME: z.string().default("Rshwub Meet"),
 
     /**
      * S3 Configuration
@@ -118,7 +118,7 @@ export const env = createEnv({
     /**
      * App name
      */
-    APP_NAME: z.string().optional().default("Rallly"),
+    APP_NAME: z.string().optional().default("Rshwub Meet"),
     /**
      * Primary color for theming (hex format, e.g., "#4f46e5")
      */

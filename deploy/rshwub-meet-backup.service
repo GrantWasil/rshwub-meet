@@ -1,0 +1,21 @@
+[Unit]
+Description=Encrypted Rshwub Meet PostgreSQL backup to off-host object storage
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/rshwub-meet/backup.env
+ExecStart=/opt/rshwub-meet/scripts/rshwub-backup.sh
+TimeoutStartSec=30min
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+# The Docker socket intentionally permits a read of the database via pg_dump.
+# The service must be trusted with host access; this is not a sandbox for Docker.

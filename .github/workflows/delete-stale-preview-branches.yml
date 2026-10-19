@@ -19,6 +19,7 @@ env:
 
 jobs:
   delete-stale-preview-branches:
+    if: github.repository == 'lukevella/rallly'
     runs-on: ubuntu-latest
     permissions: {}
     steps:

@@ -2,7 +2,7 @@ import { buttonVariants } from "@rallly/ui";
 import { Skeleton } from "@rallly/ui/skeleton";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
   PageContainer,
@@ -24,6 +24,8 @@ async function PollPageTitle({
 }) {
   const { pollId } = await params;
   const poll = await loadPoll(pollId);
+  if (poll.schedulingMode === "availability")
+    redirect(`/availability/${pollId}`);
   return poll.title;
 }
 

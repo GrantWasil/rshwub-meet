@@ -30,6 +30,12 @@ function resolveOptionalTimeZone(timeZone: string | undefined, date: Date) {
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
+// ICU versions differ on thin/nonbreaking spaces. Keep server-rendered text
+// and attributes identical to browser output while preserving locale wording.
+function normalizeIntlWhitespace(value: string) {
+  return value.replace(/\p{White_Space}/gu, " ");
+}
+
 function getCachedIntlDateFormatter({
   preset = "datetime",
   locale,
@@ -115,10 +121,12 @@ export function formatDateTime(
   options: FormatDateTimeOptions,
 ): string {
   const date = toDate(value);
-  return getCachedIntlDateFormatter({
-    ...options,
-    timeZone: resolveOptionalTimeZone(options.timeZone, date),
-  }).format(date);
+  return normalizeIntlWhitespace(
+    getCachedIntlDateFormatter({
+      ...options,
+      timeZone: resolveOptionalTimeZone(options.timeZone, date),
+    }).format(date),
+  );
 }
 
 export function formatDateTimeRange(
@@ -135,7 +143,7 @@ export function formatDateTimeRange(
     timeZone: startTimeZone,
   });
   if (startTimeZone === endTimeZone) {
-    return formatter.formatRange(startDate, endDate);
+    return normalizeIntlWhitespace(formatter.formatRange(startDate, endDate));
   }
   // Only a range crossing an override cutoff lands here; no single zone
   // formats both ends correctly, so each end gets its own.
@@ -143,7 +151,9 @@ export function formatDateTimeRange(
     ...options,
     timeZone: endTimeZone,
   });
-  return `${formatter.format(startDate)} – ${endFormatter.format(endDate)}`;
+  return normalizeIntlWhitespace(
+    `${formatter.format(startDate)} – ${endFormatter.format(endDate)}`,
+  );
 }
 
 // All-day values are stored as UTC midnight, so they always format in UTC.

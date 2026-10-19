@@ -14,8 +14,13 @@ import { recordPollActivities } from "@/features/poll/activity/mutations";
 import {
   canUserManagePoll,
   getPolls,
-  hasPollAdminAccess,
+  hasPollAdminAccess as hasPollSessionAdminAccess,
 } from "@/features/poll/data";
+import {
+  finalizePollOption,
+  reopenOptionsPoll,
+} from "@/features/poll/finalization/mutations";
+import { loadPollAdminAccess as hasPollAdminAccess } from "@/features/poll/management/loaders";
 import { MAX_POLL_DESCRIPTION_LENGTH } from "@/features/poll/schema";
 import { formatEventDateTime } from "@/features/scheduled-event/utils";
 import { getActiveSpaceForUser } from "@/features/space/data";
@@ -25,13 +30,12 @@ import {
 } from "@/features/space/utils";
 import { resolveTimeZoneAtWallTime } from "@/lib/datetime/time-zone-overrides";
 import { dayjs } from "@/lib/dayjs";
+import { isFeatureEnabled } from "@/lib/feature-flags/server";
 import { identifyGroup, track } from "@/lib/posthog";
 import { createIcsEvent } from "@/lib/utils/ics";
 import {
   createRateLimitMiddleware,
   possiblyPublicProcedure,
-  privateProcedure,
-  proProcedure,
   publicProcedure,
   requireUserMiddleware,
   router,
@@ -42,6 +46,7 @@ import { invites } from "./polls/invites";
 import { participants } from "./polls/participants";
 import { getScheduledEventTimes } from "./polls/scheduled-event-times";
 import { timeZoneInput } from "./polls/schema";
+import { requireOptionsPoll } from "./polls/utils";
 
 const collapseNewlines = (s: string) => s.replace(/\n{3,}/g, "\n\n");
 
@@ -327,6 +332,7 @@ export const polls = router({
     .use(createRateLimitMiddleware("update_poll", 10, "1 m"))
     .mutation(async ({ input, ctx }) => {
       const pollId = input.pollId;
+      await requireOptionsPoll(pollId);
 
       if (!(await hasPollAdminAccess(pollId, ctx.user.id))) {
         throw new TRPCError({
@@ -370,6 +376,7 @@ export const polls = router({
       }
 
       await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM polls WHERE id = ${pollId} FOR UPDATE`;
         const newOptions =
           input.optionsToAdd?.map((optionValue) => {
             const [start, end] = optionValue.split("/");
@@ -403,6 +410,7 @@ export const polls = router({
           where: { id: pollId },
           select: {
             title: true,
+            status: true,
             location: true,
             description: true,
             timeZone: true,
@@ -415,6 +423,18 @@ export const polls = router({
 
         if (!prior) {
           throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        if (
+          prior.status === "scheduled" &&
+          (input.optionsToAdd?.length ||
+            input.optionsToDelete?.length ||
+            (input.timeZone !== undefined && input.timeZone !== prior.timeZone))
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Reopen the poll before changing its dates",
+          });
         }
 
         // Reopen an auto-closed poll when new future dates are added. Manually
@@ -725,6 +745,7 @@ export const polls = router({
           createdAt: true,
           status: true,
           closedReason: true,
+          schedulingMode: true,
           hideParticipants: true,
           disableComments: true,
           hideScores: true,
@@ -761,6 +782,10 @@ export const polls = router({
             },
           },
           muted: true,
+          finalizedOptionId: true,
+          finalizedOption: {
+            select: { id: true, startTime: true, duration: true, pollId: true },
+          },
           scheduledEvent: {
             select: {
               id: true,
@@ -784,15 +809,27 @@ export const polls = router({
           message: "Poll not found",
         });
       }
-      const inviteLink = shortUrl(`/invite/${res.id}`);
+      const inviteLink = shortUrl(
+        res.schedulingMode === "availability"
+          ? `/availability/${res.id}`
+          : `/invite/${res.id}`,
+      );
 
-      const canManage = ctx.user
-        ? await canUserManagePoll(ctx.user, res)
-        : false;
+      const canManage =
+        (ctx.user ? await canUserManagePoll(ctx.user, res) : false) ||
+        (await hasPollAdminAccess(res.id, ctx.user?.id));
 
+      const finalizedTimes =
+        res.status === "scheduled" && res.finalizedOption?.pollId === res.id
+          ? getScheduledEventTimes({
+              ...res.finalizedOption,
+              timeZone: res.timeZone,
+            })
+          : null;
       const event = res.scheduledEvent
         ? {
             id: res.scheduledEvent.id,
+            calendarPath: `/api/event/${res.scheduledEvent.id}`,
             start: res.scheduledEvent.start,
             duration: res.scheduledEvent.allDay
               ? 0
@@ -802,7 +839,19 @@ export const polls = router({
                 ),
             status: res.scheduledEvent.status,
           }
-        : null;
+        : finalizedTimes
+          ? {
+              id: res.id,
+              calendarPath: `/api/poll/${res.id}/calendar`,
+              start: finalizedTimes.start,
+              duration: finalizedTimes.allDay
+                ? 0
+                : (finalizedTimes.end.getTime() -
+                    finalizedTimes.start.getTime()) /
+                  60_000,
+              status: "confirmed" as const,
+            }
+          : null;
 
       const { spaceBrandingAllowed, spaceAttributionConfigurable } =
         await getInstancePolicy();
@@ -812,7 +861,11 @@ export const polls = router({
 
       // `event` above is the shape clients read; the raw row would be a
       // second copy of the same booking in a public payload.
-      const { scheduledEvent: _scheduledEvent, ...pollFields } = res;
+      const {
+        scheduledEvent: _scheduledEvent,
+        finalizedOption: _finalizedOption,
+        ...pollFields
+      } = res;
 
       return {
         ...pollFields,
@@ -832,7 +885,7 @@ export const polls = router({
         event,
       };
     }),
-  book: proProcedure
+  book: publicProcedure
     .input(
       z.object({
         pollId: z.string(),
@@ -840,8 +893,15 @@ export const polls = router({
         notify: z.enum(["none", "all", "attendees"]),
       }),
     )
+    .use(createRateLimitMiddleware("book_poll", 20, "1 m"))
     .mutation(async ({ input, ctx }) => {
-      const hasAccess = await hasPollAdminAccess(input.pollId, ctx.user.id);
+      await requireOptionsPoll(input.pollId);
+      if (ctx.user?.banned || ctx.user?.deletedAt)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Account unavailable",
+        });
+      const hasAccess = await hasPollAdminAccess(input.pollId, ctx.user?.id);
 
       if (!hasAccess) {
         throw new TRPCError({
@@ -850,12 +910,27 @@ export const polls = router({
         });
       }
 
+      if (isFeatureEnabled("billing")) {
+        const space =
+          ctx.user && !ctx.user.isGuest
+            ? await getActiveSpaceForUser(ctx.user.id)
+            : null;
+        if (space?.tier !== "pro")
+          throw new TRPCError({
+            code: "PAYMENT_REQUIRED",
+            message: "Scheduling requires an active paid subscription",
+          });
+      }
+
       const poll = await prisma.poll.findUnique({
         where: {
           id: input.pollId,
+          deleted: false,
+          user: { banned: false, deletedAt: null },
         },
         select: {
           id: true,
+          userId: true,
           createdAt: true,
           timeZone: true,
           title: true,
@@ -875,6 +950,7 @@ export const polls = router({
           user: {
             select: {
               name: true,
+              isAnonymous: true,
               email: true,
               locale: true,
               timeFormat: true,
@@ -911,7 +987,7 @@ export const polls = router({
         });
       }
 
-      if (!poll.user) {
+      if (!poll.user || !poll.userId) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Poll has no user",
@@ -948,15 +1024,16 @@ export const polls = router({
 
       const { spaceId } = poll;
 
-      if (!spaceId) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Poll has no space",
-        });
-      }
+      const useScheduledEvent =
+        !!spaceId &&
+        !!ctx.user &&
+        !ctx.user.isGuest &&
+        (await hasPollSessionAdminAccess(input.pollId, ctx.user.id));
 
       const eventId = nanoid();
-      const uid = `${eventId}@rallly.co`;
+      const uid = useScheduledEvent
+        ? `${eventId}@rallly.co`
+        : `${poll.id}-${input.optionId}@meet.rshwub.com`;
 
       const attendees = poll.participants.filter((p) =>
         p.votes.some((v) => v.optionId === input.optionId && v.type !== "no"),
@@ -972,10 +1049,12 @@ export const polls = router({
         end: eventTimes.end,
         allDay: eventTimes.allDay,
         timeZone: eventTimes.timeZone ?? undefined,
-        organizer: {
-          name: poll.user.name,
-          email: poll.user.email,
-        },
+        organizer: poll.user.isAnonymous
+          ? undefined
+          : {
+              name: poll.user.name,
+              email: poll.user.email,
+            },
       });
 
       // A poll can have several participants sharing an email; an event holds at
@@ -1021,60 +1100,88 @@ export const polls = router({
         });
       }
       const inviteData = Array.from(invitesByEmail.values());
+      const eventUserId = ctx.user?.id ?? poll.userId;
 
-      const scheduledEvent = await prisma.$transaction(async (tx) => {
-        // create scheduled event
-        const event = await tx.scheduledEvent.create({
-          data: {
-            id: eventId,
-            uid: `${eventId}@rallly.co`,
-            start: eventTimes.start,
-            end: eventTimes.end,
-            title: poll.title,
-            description: poll.description,
-            location: poll.location
-              ? { provider: "custom", address: poll.location }
-              : undefined,
-            timeZone: eventTimes.timeZone,
-            userId: ctx.user.id,
-            spaceId,
-            allDay: eventTimes.allDay,
-            status: "confirmed",
-            hideAttendees: poll.hideParticipants,
-            invites: {
-              createMany: {
-                data: inviteData,
-              },
-            },
-          },
-        });
-        // update poll status
-        await tx.poll.update({
-          where: {
-            id: poll.id,
-          },
-          data: {
-            status: "scheduled",
-            closedReason: null,
-            scheduledEventId: event.id,
-          },
-        });
+      const scheduledEvent =
+        useScheduledEvent && spaceId
+          ? await prisma.$transaction(async (tx) => {
+              await tx.$queryRaw`SELECT id FROM polls WHERE id = ${poll.id} FOR UPDATE`;
+              const current = await tx.poll.findFirst({
+                where: {
+                  id: poll.id,
+                  deleted: false,
+                  status: { in: ["open", "closed"] },
+                  user: { banned: false, deletedAt: null },
+                },
+                select: { id: true },
+              });
+              const currentOption = await tx.option.findFirst({
+                where: { id: input.optionId, pollId: poll.id },
+                select: { id: true },
+              });
+              if (!current || !currentOption)
+                throw new TRPCError({
+                  code: "BAD_REQUEST",
+                  message: "Reopen the poll before choosing another final time",
+                });
+              // create scheduled event
+              const event = await tx.scheduledEvent.create({
+                data: {
+                  id: eventId,
+                  uid: `${eventId}@rallly.co`,
+                  start: eventTimes.start,
+                  end: eventTimes.end,
+                  title: poll.title,
+                  description: poll.description,
+                  location: poll.location
+                    ? { provider: "custom", address: poll.location }
+                    : undefined,
+                  timeZone: eventTimes.timeZone,
+                  userId: eventUserId,
+                  spaceId,
+                  allDay: eventTimes.allDay,
+                  status: "confirmed",
+                  hideAttendees: poll.hideParticipants,
+                  invites: {
+                    createMany: {
+                      data: inviteData,
+                    },
+                  },
+                },
+              });
+              // update poll status
+              await tx.poll.update({
+                where: {
+                  id: poll.id,
+                },
+                data: {
+                  status: "scheduled",
+                  closedReason: null,
+                  scheduledEventId: event.id,
+                  finalizedOptionId: input.optionId,
+                },
+              });
 
-        await recordPollActivities(tx, [
-          {
-            pollId: poll.id,
-            type: "poll_scheduled",
-            userId: ctx.user.id,
-            optionId: input.optionId,
-            payload: {
-              start: option.startTime.toISOString(),
-              duration: option.duration,
-            },
-          },
-        ]);
+              await recordPollActivities(tx, [
+                {
+                  pollId: poll.id,
+                  type: "poll_scheduled",
+                  userId: eventUserId,
+                  optionId: input.optionId,
+                  payload: {
+                    start: option.startTime.toISOString(),
+                    duration: option.duration,
+                  },
+                },
+              ]);
 
-        return event;
-      });
+              return event;
+            })
+          : await finalizePollOption({
+              pollId: poll.id,
+              optionId: input.optionId,
+              userId: ctx.user?.id,
+            });
 
       if (event.error) {
         throw new TRPCError({
@@ -1136,35 +1243,36 @@ export const polls = router({
         });
 
         const space = poll.space;
-        after(async () =>
-          sendFinalizeHostEmail({
-            to: hostEmail,
-            locale: hostLocale,
-            branding: await getInstanceBranding(),
-            icalEvent: {
-              filename: "invite.ics",
-              method: "request",
-              content: event.value,
-            },
-            props: {
-              name: hostName,
-              pollUrl: absoluteUrl(`/poll/${poll.id}`),
-              location: poll.location,
-              title: poll.title,
-              attendees: poll.participants
-                .filter((p) =>
-                  p.votes.some(
-                    (v) => v.optionId === input.optionId && v.type !== "no",
-                  ),
-                )
-                .map((p) => p.name),
-              date,
-              day,
-              dow,
-              time,
-            },
-          }),
-        );
+        if (!poll.user.isAnonymous)
+          after(async () =>
+            sendFinalizeHostEmail({
+              to: hostEmail,
+              locale: hostLocale,
+              branding: await getInstanceBranding(),
+              icalEvent: {
+                filename: "invite.ics",
+                method: "request",
+                content: event.value,
+              },
+              props: {
+                name: hostName,
+                pollUrl: absoluteUrl(`/poll/${poll.id}`),
+                location: poll.location,
+                title: poll.title,
+                attendees: poll.participants
+                  .filter((p) =>
+                    p.votes.some(
+                      (v) => v.optionId === input.optionId && v.type !== "no",
+                    ),
+                  )
+                  .map((p) => p.name),
+                date,
+                day,
+                dow,
+                time,
+              },
+            }),
+          );
 
         for (const p of participantsToEmail) {
           const { date, day, dow, time } = formatEventDateTime({
@@ -1200,27 +1308,34 @@ export const polls = router({
           );
         }
 
-        track(ctx.user, {
-          event: "poll_schedule",
-          properties: {
-            attendee_count: attendees.length,
-            days_since_created: dayjs().diff(poll.createdAt, "day"),
-            participant_count: poll.participants.length,
-          },
-          groups: {
-            poll: poll.id,
-          },
-        });
+        if (ctx.user)
+          track(ctx.user, {
+            event: "poll_schedule",
+            properties: {
+              attendee_count: attendees.length,
+              days_since_created: dayjs().diff(poll.createdAt, "day"),
+              participant_count: poll.participants.length,
+            },
+            groups: {
+              poll: poll.id,
+            },
+          });
       }
     }),
-  reopen: privateProcedure
+  reopen: publicProcedure
     .input(
       z.object({
         pollId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const hasAccess = await hasPollAdminAccess(input.pollId, ctx.user.id);
+      await requireOptionsPoll(input.pollId);
+      if (ctx.user?.banned || ctx.user?.deletedAt)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Account unavailable",
+        });
+      const hasAccess = await hasPollAdminAccess(input.pollId, ctx.user?.id);
 
       if (!hasAccess) {
         throw new TRPCError({
@@ -1229,56 +1344,15 @@ export const polls = router({
         });
       }
 
-      await prisma.$transaction(async (tx) => {
-        // Conditional transition: only the call that actually flips the
-        // status appends a lifecycle event, so repeated or concurrent calls
-        // can't record a reopen that didn't happen.
-        const { count } = await tx.poll.updateMany({
-          where: {
-            id: input.pollId,
-            status: { not: "open" },
-          },
-          data: {
-            status: "open",
-            closedReason: null,
+      await reopenOptionsPoll({ pollId: input.pollId, userId: ctx.user?.id });
+
+      if (ctx.user)
+        track(ctx.user, {
+          event: "poll_reopen",
+          groups: {
+            poll: input.pollId,
           },
         });
-
-        if (count === 0) {
-          return;
-        }
-
-        const poll = await tx.poll.findUnique({
-          where: {
-            id: input.pollId,
-          },
-          select: { scheduledEventId: true },
-        });
-
-        if (poll?.scheduledEventId) {
-          await tx.scheduledEvent.delete({
-            where: {
-              id: poll.scheduledEventId,
-            },
-          });
-        }
-
-        await recordPollActivities(tx, [
-          {
-            pollId: input.pollId,
-            type: "poll_reopened",
-            userId: ctx.user.id,
-            payload: {},
-          },
-        ]);
-      });
-
-      track(ctx.user, {
-        event: "poll_reopen",
-        groups: {
-          poll: input.pollId,
-        },
-      });
     }),
   close: possiblyPublicProcedure
     .input(
@@ -1288,6 +1362,7 @@ export const polls = router({
     )
     .use(requireUserMiddleware)
     .mutation(async ({ input, ctx }) => {
+      await requireOptionsPoll(input.pollId);
       const hasAccess = await hasPollAdminAccess(input.pollId, ctx.user.id);
 
       if (!hasAccess) {
@@ -1306,7 +1381,8 @@ export const polls = router({
         const { count } = await tx.poll.updateMany({
           where: {
             id: input.pollId,
-            status: { not: "closed" },
+            status: "open",
+            deleted: false,
           },
           data: {
             status: "closed",
@@ -1335,7 +1411,8 @@ export const polls = router({
         },
       });
     }),
-  duplicate: proProcedure
+  duplicate: possiblyPublicProcedure
+    .use(requireUserMiddleware)
     .input(
       z.object({
         pollId: z.string(),
@@ -1343,6 +1420,7 @@ export const polls = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
+      await requireOptionsPoll(input.pollId);
       const hasAccess = await hasPollAdminAccess(input.pollId, ctx.user.id);
 
       if (!hasAccess) {
@@ -1351,6 +1429,15 @@ export const polls = router({
           message: "You are not allowed to duplicate this poll",
         });
       }
+
+      const activeSpace = ctx.user.isGuest
+        ? null
+        : await getActiveSpaceForUser(ctx.user.id);
+      if (isFeatureEnabled("billing") && activeSpace?.tier !== "pro")
+        throw new TRPCError({
+          code: "PAYMENT_REQUIRED",
+          message: "Duplicating requires an active paid subscription",
+        });
 
       const poll = await prisma.poll.findUnique({
         where: {
@@ -1390,7 +1477,7 @@ export const polls = router({
             userId: ctx.user.id,
             timeZone: poll.timeZone,
             location: poll.location,
-            spaceId: poll.spaceId,
+            spaceId: activeSpace?.id,
             requireParticipantEmail: poll.requireParticipantEmail,
             description: poll.description,
             hideParticipants: poll.hideParticipants,

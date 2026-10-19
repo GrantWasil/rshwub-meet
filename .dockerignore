@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store
 .git
 .github
 .vscode
@@ -14,8 +15,18 @@ node_modules
 
 # Build outputs
 apps/*/.next
+apps/*/.next-build
 apps/*/dist
 packages/*/dist
 
 # Turbo prune output
 out/
+
+# Local deployment secrets and backups
+deploy/.env
+deploy/backup.env
+**/*.age
+**/*.dump
+**/*.key
+**/.env
+**/.env.local

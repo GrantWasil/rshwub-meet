@@ -12,15 +12,14 @@ import { env } from "@/env";
 import { getNotificationRecipient } from "@/features/notifications/data";
 import { createUnsubscribeToken } from "@/features/notifications/utils";
 import { recordPollActivities } from "@/features/poll/activity/mutations";
-import {
-  hasPollAdminAccess,
-  listParticipantIdsByToken,
-} from "@/features/poll/data";
+import { listParticipantIdsByToken } from "@/features/poll/data";
+import { lockOpenOptionsPoll } from "@/features/poll/finalization/mutations";
 import {
   attachParticipantToInvite,
   findPendingPollInvite,
 } from "@/features/poll/invite/mutations";
 import { getPollInvitePath } from "@/features/poll/invite/utils";
+import { loadPollAdminAccess as hasPollAdminAccess } from "@/features/poll/management/loaders";
 import { generateAccessToken } from "@/features/poll/utils";
 import { AppError } from "@/lib/errors/app-error";
 import { track } from "@/lib/posthog";
@@ -31,7 +30,7 @@ import {
   router,
 } from "../../trpc";
 import { responseNoteInput } from "./schema";
-import { authorizeParticipantEdit } from "./utils";
+import { authorizeParticipantEdit, requireOptionsPoll } from "./utils";
 
 const logger = createLogger("participants");
 
@@ -117,6 +116,7 @@ export const participants = router({
       }),
     )
     .query(async ({ ctx, input: { pollId, token } }) => {
+      await requireOptionsPoll(pollId);
       const poll = await prisma.poll.findUnique({
         where: { id: pollId },
         select: {
@@ -224,8 +224,10 @@ export const participants = router({
         token,
         ctxUser: ctx.user,
       });
+      await requireOptionsPoll(participant.pollId);
 
       await prisma.$transaction(async (tx) => {
+        await lockOpenOptionsPoll(tx, participant.pollId);
         // Snapshot before the delete: the activity payload is the historical
         // record of the removed response, so it carries the name and votes.
         const snapshot = await tx.participant.findUniqueOrThrow({
@@ -309,6 +311,7 @@ export const participants = router({
         ctx,
         input: { pollId, votes, name, email, note, timeZone, token },
       }) => {
+        await requireOptionsPoll(pollId);
         const poll = await prisma.poll.findUnique({
           where: { id: pollId },
           select: { status: true, deleted: true },
@@ -366,6 +369,7 @@ export const participants = router({
 
         const { participant, editToken, viaInvite } = await prisma.$transaction(
           async (tx) => {
+            await lockOpenOptionsPoll(tx, pollId);
             // A response answering an emailed invite takes the invite's
             // token, so the link the invitee already holds names it.
             const invite = token
@@ -515,8 +519,10 @@ export const participants = router({
         token,
         ctxUser: ctx.user,
       });
+      await requireOptionsPoll(participant.pollId);
 
       await prisma.$transaction(async (tx) => {
+        await lockOpenOptionsPoll(tx, participant.pollId);
         await tx.participant.update({
           where: {
             id: participantId,
@@ -561,8 +567,10 @@ export const participants = router({
         });
 
       const pollId = existingParticipant.pollId;
+      await requireOptionsPoll(pollId);
 
       const participant = await prisma.$transaction(async (tx) => {
+        await lockOpenOptionsPoll(tx, pollId);
         // Delete existing votes
         await tx.vote.deleteMany({
           where: {

@@ -9,7 +9,7 @@ import { getInstanceBranding } from "@/emails/branding";
 import { env } from "@/env";
 import { getNotificationRecipient } from "@/features/notifications/data";
 import { createUnsubscribeToken } from "@/features/notifications/utils";
-import { hasPollAdminAccess } from "@/features/poll/data";
+import { loadPollAdminAccess as hasPollAdminAccess } from "@/features/poll/management/loaders";
 import {
   MAX_COMMENT_AUTHOR_NAME_LENGTH,
   MAX_COMMENT_LENGTH,

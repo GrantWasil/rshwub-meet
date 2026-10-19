@@ -16,10 +16,11 @@ export function deriveInstancePolicy({
     // Single-tenant instance: the instance is the org boundary, so adding a
     // member to a space only makes sense to collaborate
     spacesAlwaysShared: isSelfHosted,
-    // A white label instance is branded by its operator
-    spaceBrandingAllowed: !whiteLabelAddon,
-    // Self-hosted attribution is licensed at instance level (white label
-    // addon + HIDE_ATTRIBUTION), not chosen per space
+    // This fork permits instance and space branding together, regardless of
+    // an imported upstream license record.
+    spaceBrandingAllowed: isSelfHosted || !whiteLabelAddon,
+    // Self-hosted attribution remains an instance-wide operator setting,
+    // not a per-space choice. Source/license notices are preserved separately.
     spaceAttributionConfigurable: !isSelfHosted,
   };
 }

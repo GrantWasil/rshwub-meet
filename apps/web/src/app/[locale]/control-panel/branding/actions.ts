@@ -22,13 +22,13 @@ import {
   createAssetUploadUrl,
 } from "@/lib/storage/asset-upload";
 
-async function requireWhiteLabelAddon() {
-  const hasWhiteLabelAddon = await getWhiteLabelAddon();
+async function requireCustomBranding() {
+  const customBrandingAllowed = await getWhiteLabelAddon();
 
-  if (!hasWhiteLabelAddon) {
+  if (!customBrandingAllowed) {
     throw new AppError({
-      code: "PAYMENT_REQUIRED",
-      message: "Custom branding requires the white label add-on.",
+      code: "FORBIDDEN",
+      message: "Custom branding is not enabled on this instance.",
     });
   }
 }
@@ -39,7 +39,7 @@ export const updateBrandingSettingsAction = adminActionClient
   })
   .inputSchema(brandingSettingsSchema.partial())
   .action(async ({ parsedInput }) => {
-    await requireWhiteLabelAddon();
+    await requireCustomBranding();
 
     await updateInstanceSettings(parsedInput);
   });
@@ -50,7 +50,7 @@ export const getBrandingLogoUploadUrlAction = adminActionClient
   })
   .inputSchema(brandingLogoUploadSchema)
   .action(async ({ parsedInput }) => {
-    await requireWhiteLabelAddon();
+    await requireCustomBranding();
 
     return await createAssetUploadUrl({
       profile: brandingLogoProfiles[parsedInput.logoType],
@@ -66,7 +66,7 @@ export const updateBrandingLogoAction = adminActionClient
   })
   .inputSchema(updateBrandingLogoSchema)
   .action(async ({ parsedInput }) => {
-    await requireWhiteLabelAddon();
+    await requireCustomBranding();
 
     assertAssetKey(parsedInput.imageKey, {
       profile: brandingLogoProfiles[parsedInput.logoType],
@@ -85,7 +85,7 @@ export const removeBrandingLogoAction = adminActionClient
   })
   .inputSchema(removeBrandingLogoSchema)
   .action(async ({ parsedInput }) => {
-    await requireWhiteLabelAddon();
+    await requireCustomBranding();
 
     await updateInstanceLogo({
       logoType: parsedInput.logoType,

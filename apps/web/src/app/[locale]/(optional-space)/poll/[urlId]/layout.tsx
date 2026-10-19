@@ -25,6 +25,10 @@ export default async function Layout(
       throw e;
     });
 
+  if (poll.schedulingMode === "availability") {
+    redirect(`/availability/${params.urlId}`);
+  }
+
   if (!poll.canManage) {
     redirect(`/invite/${params.urlId}`);
   }

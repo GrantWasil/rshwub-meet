@@ -1,0 +1,6 @@
+.env
+backup.env
+*.age
+*.dump
+*.sha256
+*.key

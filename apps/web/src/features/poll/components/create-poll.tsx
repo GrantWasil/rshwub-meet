@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import React from "react";
 import { useForm, useFormContext } from "react-hook-form";
 import useFormPersist from "react-hook-form-persist";
+import { SchedulingModeSwitch } from "@/features/poll/availability/components/scheduling-mode-switch";
 import { PollDetailsForm } from "@/features/poll/components/forms/poll-details-form";
 import PollOptionsForm from "@/features/poll/components/forms/poll-options-form/poll-options-form";
 import { PollSettingsForm } from "@/features/poll/components/forms/poll-settings";
@@ -60,8 +61,8 @@ const GuestModeBadge = () => {
         </h3>
         <p className="mt-1 text-pretty text-muted-foreground text-sm">
           <Trans
-            i18nKey="createPollGuestModeDescription"
-            defaults="Guest polls can only be managed from the browser they were created in. Log in to manage them from any device."
+            i18nKey="createPollGuestManagementLinkDescription"
+            defaults="Save your private management link to manage this poll from another device. An account is optional."
           />
         </p>
       </PopoverContent>
@@ -204,6 +205,7 @@ export const CreatePoll = ({ nav }: { nav?: React.ReactNode }) => {
         tabIndex={-1}
         className="mx-auto max-w-4xl px-3 lg:pt-6"
       >
+        <SchedulingModeSwitch mode="options" />
         <form
           id="create-poll"
           onSubmit={form.handleSubmit(async (formData) => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   formatDate,
   formatDateParts,
@@ -142,6 +142,46 @@ describe("formatDateTimeRange", () => {
     });
     expect(out).toContain("13:00");
     expect(out).toContain("14:00");
+  });
+  it.each([
+    "5:00\u2009–\u20095:15\u202fPM",
+    "5:00 – 5:15 PM",
+  ])("normalizes engine-dependent range spacing: %s", (formatted) => {
+    const spy = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "formatRange")
+      .mockReturnValue(formatted);
+    try {
+      expect(
+        formatDateTimeRange(at(17), at(17, 15), {
+          preset: "time",
+          ...ctx("en", "hours12"),
+        }),
+      ).toBe("5:00 – 5:15 PM");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+  it("normalizes single-time nonbreaking spaces without changing locale punctuation", () => {
+    const originalFormat = Object.getOwnPropertyDescriptor(
+      Intl.DateTimeFormat.prototype,
+      "format",
+    );
+    if (!originalFormat) throw new Error("Intl format accessor is missing");
+    Object.defineProperty(Intl.DateTimeFormat.prototype, "format", {
+      configurable: true,
+      get: () => () => "5.00\u00a0PM",
+    });
+    try {
+      expect(
+        formatDateTime(at(17), { preset: "time", ...ctx("fi", "hours12") }),
+      ).toBe("5.00 PM");
+    } finally {
+      Object.defineProperty(
+        Intl.DateTimeFormat.prototype,
+        "format",
+        originalFormat,
+      );
+    }
   });
 });
 

@@ -3,14 +3,9 @@ import "server-only";
 import { cache } from "react";
 import { env } from "@/env";
 import { getInstanceSettings } from "@/features/instance-settings/data";
-import { loadInstanceLicense } from "@/features/licensing/data";
 import { isSelfHosted } from "@/lib/constants";
 import { isMaintenanceModeEnabled } from "@/lib/maintenance";
 import { resolveBrandingConfig } from "./utils";
-
-function getDefaultBrandingConfig() {
-  return resolveBrandingConfig({});
-}
 
 function getEnvBrandingValues() {
   return {
@@ -37,21 +32,9 @@ export async function getCustomBrandingConfig() {
 
 /**
  * Returns the branding config for the current instance.
- * Automatically checks if the white label addon is enabled and returns
- * the appropriate config (custom or default).
+ * This fork enables custom branding as local product policy. Maintenance uses
+ * the same env/default branding without touching the database.
  */
 export const getInstanceBrandingConfig = cache(async () => {
-  if (!isSelfHosted) {
-    return getCustomBrandingConfig();
-  }
-  if (isMaintenanceModeEnabled()) {
-    // Skip the license lookup so the maintenance page can render while the
-    // database is unreachable
-    return getDefaultBrandingConfig();
-  }
-  const license = await loadInstanceLicense();
-  const hasWhiteLabelAddon = license?.whiteLabelAddon ?? false;
-  return hasWhiteLabelAddon
-    ? getCustomBrandingConfig()
-    : getDefaultBrandingConfig();
+  return getCustomBrandingConfig();
 });

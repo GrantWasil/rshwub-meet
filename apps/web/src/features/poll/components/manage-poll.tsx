@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@rallly/ui/dropdown-menu";
+import { toast } from "@rallly/ui/sonner";
 import {
   CalendarCheck2Icon,
   ChevronDownIcon,
@@ -41,9 +42,13 @@ function OpenCloseToggle() {
         return {
           ...oldData,
           status: "open",
+          event: null,
+          finalizedOptionId: null,
         };
       });
+      void queryClient.polls.get.invalidate({ urlId: vars.pollId });
     },
+    onError: (error) => toast.error(error.message),
   });
   const closePoll = trpc.polls.close.useMutation({
     onSuccess: (_data, vars) => {
@@ -54,27 +59,17 @@ function OpenCloseToggle() {
           status: "closed",
         };
       });
+      void queryClient.polls.get.invalidate({ urlId: vars.pollId });
     },
+    onError: (error) => toast.error(error.message),
   });
 
-  if (poll.status === "closed") {
+  if (poll.status !== "open") {
     return (
       <DropdownMenuItem
+        disabled={openPoll.isPending}
         onClick={() => {
-          openPoll.mutate(
-            { pollId: poll.id },
-            {
-              onSuccess: () => {
-                queryClient.polls.get.setData({ urlId: poll.id }, (oldData) => {
-                  if (!oldData) return oldData;
-                  return {
-                    ...oldData,
-                    status: "open",
-                  };
-                });
-              },
-            },
-          );
+          openPoll.mutate({ pollId: poll.id });
         }}
       >
         <PlayIcon />
@@ -84,21 +79,9 @@ function OpenCloseToggle() {
   } else {
     return (
       <DropdownMenuItem
+        disabled={closePoll.isPending}
         onClick={() => {
-          closePoll.mutate(
-            { pollId: poll.id },
-            {
-              onSuccess: () => {
-                queryClient.polls.get.setData({ urlId: poll.id }, (oldData) => {
-                  if (!oldData) return oldData;
-                  return {
-                    ...oldData,
-                    status: "closed",
-                  };
-                });
-              },
-            },
-          );
+          closePoll.mutate({ pollId: poll.id });
         }}
       >
         <CircleStopIcon />
@@ -151,28 +134,26 @@ const ManagePoll: React.FunctionComponent<{
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {poll.status === "scheduled" || poll.status === "canceled" ? null : (
-            <>
-              <DropdownMenuItem
-                disabled={!!poll.event}
-                onClick={() => {
-                  if (isFree) {
-                    showPayWall({
-                      from: "manage-poll",
-                      action: "schedule",
-                      pollId: poll.id,
-                    });
-                  } else {
-                    scheduleDialog.trigger();
-                  }
-                }}
-              >
-                <CalendarCheck2Icon />
-                <Trans i18nKey="schedulePoll" defaults="Schedule" />
-                {isFree ? <ProBadge /> : null}
-              </DropdownMenuItem>
-              <OpenCloseToggle />
-            </>
+            <DropdownMenuItem
+              disabled={!!poll.event}
+              onClick={() => {
+                if (isFree) {
+                  showPayWall({
+                    from: "manage-poll",
+                    action: "schedule",
+                    pollId: poll.id,
+                  });
+                } else {
+                  scheduleDialog.trigger();
+                }
+              }}
+            >
+              <CalendarCheck2Icon />
+              <Trans i18nKey="schedulePoll" defaults="Schedule" />
+              {isFree ? <ProBadge /> : null}
+            </DropdownMenuItem>
           )}
+          <OpenCloseToggle />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={exportToCsv}>
             <DownloadIcon />

@@ -12,6 +12,13 @@ import type {
 } from "@/features/space/types";
 import { decryptToken } from "@/lib/session";
 
+export async function isOptionsPoll(pollId: string) {
+  return !!(await prisma.poll.findFirst({
+    where: { id: pollId, deleted: false, schedulingMode: "options" },
+    select: { id: true },
+  }));
+}
+
 export async function getPoll({
   pollId,
   scope,
@@ -30,6 +37,7 @@ export async function getPoll({
       id: true,
       title: true,
       status: true,
+      schedulingMode: true,
     },
   });
 }

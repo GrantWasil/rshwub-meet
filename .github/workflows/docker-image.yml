@@ -29,6 +29,7 @@ jobs:
   # -----------------------------------------------------------------
   build:
     name: Build & Push Container Image
+    if: github.repository == 'lukevella/rallly'
     strategy:
       fail-fast: false
       matrix:
@@ -141,6 +142,7 @@ jobs:
   # -----------------------------------------------------------------
   publish-dockerhub:
     name: "Publish Multi-Arch Manifest: Docker Hub"
+    if: github.repository == 'lukevella/rallly'
     runs-on: ubuntu-latest
     needs:
       - build

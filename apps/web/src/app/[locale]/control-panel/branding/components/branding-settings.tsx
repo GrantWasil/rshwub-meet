@@ -6,7 +6,7 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@rallly/ui/field";
-import { CodeIcon, ContainerIcon, GemIcon, HardDriveIcon } from "lucide-react";
+import { CodeIcon, ContainerIcon, HardDriveIcon } from "lucide-react";
 import { Trans } from "react-i18next/TransWithoutContext";
 import {
   PageSection,
@@ -101,7 +101,7 @@ async function SetEnvironmentVariableAlert({ variable }: { variable: string }) {
 
 export async function BrandingSettings() {
   const {
-    hasWhiteLabelAddon,
+    customBrandingAllowed,
     appName,
     primaryColor,
     primaryColorDark,
@@ -115,323 +115,291 @@ export async function BrandingSettings() {
   const { t, i18n } = await getTranslation();
 
   return (
-    <>
-      {!hasWhiteLabelAddon ? (
-        <Alert variant="primary">
-          <GemIcon />
-          <AlertDescription>
+    <PageSectionGroup>
+      <PageSection variant="card">
+        <PageSectionHeader>
+          <PageSectionTitle>
             <Trans
               t={t}
               i18n={i18n}
               ns="app"
-              i18nKey="customBrandingAlertDescription"
-              defaults="Custom branding is available to Enterprise license holders as a paid add-on."
+              i18nKey="general"
+              defaults="General"
             />
-          </AlertDescription>
-          <AlertAction>
-            <a
-              href="https://support.rallly.co/self-hosting/white-labeling"
-              target="_blank"
-              className="underline"
-              rel="noreferrer"
-            >
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="learnMore"
-                defaults="Learn more"
-              />
-            </a>
-          </AlertAction>
-        </Alert>
-      ) : null}
-      <PageSectionGroup>
-        <PageSection variant="card">
-          <PageSectionHeader>
-            <PageSectionTitle>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="general"
-                defaults="General"
-              />
-            </PageSectionTitle>
-            <PageSectionDescription>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="brandingGeneralDescription"
-                defaults="Set the name of your instance"
-              />
-            </PageSectionDescription>
-          </PageSectionHeader>
-          <PageSectionContent>
-            <FieldGroup variant="divided">
-              <Field>
-                <Field orientation="responsive">
-                  <FieldContent>
-                    <FieldLabel htmlFor="app-name">
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="appName"
-                        defaults="App name"
-                      />
-                    </FieldLabel>
-                  </FieldContent>
-                  <AppNameField
-                    defaultValue={appName}
-                    disabled={!hasWhiteLabelAddon}
-                  />
-                </Field>
-                {envConfigured.appName ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : null}
+          </PageSectionTitle>
+          <PageSectionDescription>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="brandingGeneralDescription"
+              defaults="Set the name of your instance"
+            />
+          </PageSectionDescription>
+        </PageSectionHeader>
+        <PageSectionContent>
+          <FieldGroup variant="divided">
+            <Field>
+              <Field orientation="responsive">
+                <FieldContent>
+                  <FieldLabel htmlFor="app-name">
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="appName"
+                      defaults="App name"
+                    />
+                  </FieldLabel>
+                </FieldContent>
+                <AppNameField
+                  defaultValue={appName}
+                  disabled={!customBrandingAllowed}
+                />
               </Field>
-            </FieldGroup>
-          </PageSectionContent>
-        </PageSection>
-        <PageSection variant="card">
-          <PageSectionHeader>
-            <PageSectionTitle>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="colors"
-                defaults="Colors"
-              />
-            </PageSectionTitle>
-            <PageSectionDescription>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="colorsDescription"
-                defaults="Primary colors used for theming"
-              />
-            </PageSectionDescription>
-          </PageSectionHeader>
-          <PageSectionContent>
-            <FieldGroup variant="divided">
-              <Field>
-                <Field orientation="responsive">
-                  <FieldContent>
-                    <FieldTitle id="primary-color-label">
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="primaryColor"
-                        defaults="Primary color"
-                      />
-                    </FieldTitle>
-                  </FieldContent>
-                  <PrimaryColorField
-                    field="primaryColor"
-                    defaultValue={primaryColor}
-                    disabled={!hasWhiteLabelAddon}
-                    aria-labelledby="primary-color-label"
-                  />
-                </Field>
-                {envConfigured.primaryColor ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : null}
+              {envConfigured.appName ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : null}
+            </Field>
+          </FieldGroup>
+        </PageSectionContent>
+      </PageSection>
+      <PageSection variant="card">
+        <PageSectionHeader>
+          <PageSectionTitle>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="colors"
+              defaults="Colors"
+            />
+          </PageSectionTitle>
+          <PageSectionDescription>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="colorsDescription"
+              defaults="Primary colors used for theming"
+            />
+          </PageSectionDescription>
+        </PageSectionHeader>
+        <PageSectionContent>
+          <FieldGroup variant="divided">
+            <Field>
+              <Field orientation="responsive">
+                <FieldContent>
+                  <FieldTitle id="primary-color-label">
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="primaryColor"
+                      defaults="Primary color"
+                    />
+                  </FieldTitle>
+                </FieldContent>
+                <PrimaryColorField
+                  field="primaryColor"
+                  defaultValue={primaryColor}
+                  disabled={!customBrandingAllowed}
+                  aria-labelledby="primary-color-label"
+                />
               </Field>
-              <Field>
-                <Field orientation="responsive">
-                  <FieldContent>
-                    <FieldTitle id="primary-color-dark-label">
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="primaryColorDark"
-                        defaults="Primary color (dark mode)"
-                      />
-                    </FieldTitle>
-                  </FieldContent>
-                  <PrimaryColorField
-                    field="primaryColorDark"
-                    defaultValue={primaryColorDark}
-                    disabled={!hasWhiteLabelAddon}
-                    aria-labelledby="primary-color-dark-label"
-                  />
-                </Field>
-                {envConfigured.primaryColorDark ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : null}
+              {envConfigured.primaryColor ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : null}
+            </Field>
+            <Field>
+              <Field orientation="responsive">
+                <FieldContent>
+                  <FieldTitle id="primary-color-dark-label">
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="primaryColorDark"
+                      defaults="Primary color (dark mode)"
+                    />
+                  </FieldTitle>
+                </FieldContent>
+                <PrimaryColorField
+                  field="primaryColorDark"
+                  defaultValue={primaryColorDark}
+                  disabled={!customBrandingAllowed}
+                  aria-labelledby="primary-color-dark-label"
+                />
               </Field>
-            </FieldGroup>
-          </PageSectionContent>
-        </PageSection>
-        <PageSection variant="card">
-          <PageSectionHeader>
-            <PageSectionTitle>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="logos"
-                defaults="Logos"
-              />
-            </PageSectionTitle>
-            <PageSectionDescription>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="logosDescription"
-                defaults="Logo images used throughout the application"
-              />
-            </PageSectionDescription>
-          </PageSectionHeader>
-          <PageSectionContent>
-            {!isStorageEnabled ? <StorageNotConfiguredAlert /> : null}
-            <FieldGroup variant="divided">
+              {envConfigured.primaryColorDark ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : null}
+            </Field>
+          </FieldGroup>
+        </PageSectionContent>
+      </PageSection>
+      <PageSection variant="card">
+        <PageSectionHeader>
+          <PageSectionTitle>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="logos"
+              defaults="Logos"
+            />
+          </PageSectionTitle>
+          <PageSectionDescription>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="logosDescription"
+              defaults="Logo images used throughout the application"
+            />
+          </PageSectionDescription>
+        </PageSectionHeader>
+        <PageSectionContent>
+          {!isStorageEnabled ? <StorageNotConfiguredAlert /> : null}
+          <FieldGroup variant="divided">
+            <Field>
               <Field>
-                <Field>
-                  <FieldContent>
-                    <FieldTitle>
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="logo"
-                        defaults="Logo"
-                      />
-                    </FieldTitle>
-                  </FieldContent>
-                  <LogoUploadField
-                    logoType="logo"
-                    previewUrl={logoUrlLight}
-                    previewAlt={t("logo", { ns: "app", defaultValue: "Logo" })}
-                    hasCustomLogo={logoConfigured.logo}
-                    disabled={!hasWhiteLabelAddon}
-                  />
-                </Field>
-                {envConfigured.logo ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : !isStorageEnabled ? (
-                  <SetEnvironmentVariableAlert variable="LOGO_URL" />
-                ) : null}
+                <FieldContent>
+                  <FieldTitle>
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="logo"
+                      defaults="Logo"
+                    />
+                  </FieldTitle>
+                </FieldContent>
+                <LogoUploadField
+                  logoType="logo"
+                  previewUrl={logoUrlLight}
+                  previewAlt={t("logo", { ns: "app", defaultValue: "Logo" })}
+                  hasCustomLogo={logoConfigured.logo}
+                  disabled={!customBrandingAllowed}
+                />
               </Field>
+              {envConfigured.logo ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : !isStorageEnabled ? (
+                <SetEnvironmentVariableAlert variable="LOGO_URL" />
+              ) : null}
+            </Field>
+            <Field>
               <Field>
-                <Field>
-                  <FieldContent>
-                    <FieldTitle>
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="logoDark"
-                        defaults="Logo (dark mode)"
-                      />
-                    </FieldTitle>
-                  </FieldContent>
-                  <LogoUploadField
-                    logoType="logoDark"
-                    previewUrl={logoUrlDark}
-                    previewAlt={t("logoDark", {
-                      ns: "app",
-                      defaultValue: "Logo (dark mode)",
-                    })}
-                    hasCustomLogo={logoConfigured.logoDark}
-                    disabled={!hasWhiteLabelAddon}
-                  />
-                </Field>
-                {envConfigured.logoDark ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : !isStorageEnabled ? (
-                  <SetEnvironmentVariableAlert variable="LOGO_URL_DARK" />
-                ) : null}
+                <FieldContent>
+                  <FieldTitle>
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="logoDark"
+                      defaults="Logo (dark mode)"
+                    />
+                  </FieldTitle>
+                </FieldContent>
+                <LogoUploadField
+                  logoType="logoDark"
+                  previewUrl={logoUrlDark}
+                  previewAlt={t("logoDark", {
+                    ns: "app",
+                    defaultValue: "Logo (dark mode)",
+                  })}
+                  hasCustomLogo={logoConfigured.logoDark}
+                  disabled={!customBrandingAllowed}
+                />
               </Field>
+              {envConfigured.logoDark ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : !isStorageEnabled ? (
+                <SetEnvironmentVariableAlert variable="LOGO_URL_DARK" />
+              ) : null}
+            </Field>
+            <Field>
               <Field>
-                <Field>
-                  <FieldContent>
-                    <FieldTitle>
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="logoIcon"
-                        defaults="Logo icon"
-                      />
-                    </FieldTitle>
-                  </FieldContent>
-                  <LogoUploadField
-                    logoType="logoIcon"
-                    previewUrl={logoIconUrl}
-                    previewAlt={t("logoIcon", {
-                      ns: "app",
-                      defaultValue: "Logo icon",
-                    })}
-                    hasCustomLogo={logoConfigured.logoIcon}
-                    disabled={!hasWhiteLabelAddon}
-                  />
-                </Field>
-                {envConfigured.logoIcon ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : !isStorageEnabled ? (
-                  <SetEnvironmentVariableAlert variable="LOGO_ICON_URL" />
-                ) : null}
+                <FieldContent>
+                  <FieldTitle>
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="logoIcon"
+                      defaults="Logo icon"
+                    />
+                  </FieldTitle>
+                </FieldContent>
+                <LogoUploadField
+                  logoType="logoIcon"
+                  previewUrl={logoIconUrl}
+                  previewAlt={t("logoIcon", {
+                    ns: "app",
+                    defaultValue: "Logo icon",
+                  })}
+                  hasCustomLogo={logoConfigured.logoIcon}
+                  disabled={!customBrandingAllowed}
+                />
               </Field>
-            </FieldGroup>
-          </PageSectionContent>
-        </PageSection>
-        <PageSection variant="card">
-          <PageSectionHeader>
-            <PageSectionTitle>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="attribution"
-                defaults="Attribution"
-              />
-            </PageSectionTitle>
-            <PageSectionDescription>
-              <Trans
-                t={t}
-                i18n={i18n}
-                ns="app"
-                i18nKey="attributionDescription"
-                defaults="Control the visibility of the attribution text"
-              />
-            </PageSectionDescription>
-          </PageSectionHeader>
-          <PageSectionContent>
-            <FieldGroup variant="divided">
-              <Field>
-                <Field orientation="horizontal">
-                  <FieldContent>
-                    <FieldLabel htmlFor="hide-attribution">
-                      <Trans
-                        t={t}
-                        i18n={i18n}
-                        ns="app"
-                        i18nKey="hideAttribution"
-                        defaults="Hide attribution"
-                      />
-                    </FieldLabel>
-                  </FieldContent>
-                  <HideAttributionField
-                    defaultValue={hideAttribution}
-                    disabled={!hasWhiteLabelAddon}
-                  />
-                </Field>
-                {envConfigured.hideAttribution ? (
-                  <ConfiguredByEnvironmentVariableAlert />
-                ) : null}
+              {envConfigured.logoIcon ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : !isStorageEnabled ? (
+                <SetEnvironmentVariableAlert variable="LOGO_ICON_URL" />
+              ) : null}
+            </Field>
+          </FieldGroup>
+        </PageSectionContent>
+      </PageSection>
+      <PageSection variant="card">
+        <PageSectionHeader>
+          <PageSectionTitle>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="attribution"
+              defaults="Attribution"
+            />
+          </PageSectionTitle>
+          <PageSectionDescription>
+            <Trans
+              t={t}
+              i18n={i18n}
+              ns="app"
+              i18nKey="attributionDescription"
+              defaults="Control the visibility of the attribution text"
+            />
+          </PageSectionDescription>
+        </PageSectionHeader>
+        <PageSectionContent>
+          <FieldGroup variant="divided">
+            <Field>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel htmlFor="hide-attribution">
+                    <Trans
+                      t={t}
+                      i18n={i18n}
+                      ns="app"
+                      i18nKey="hideAttribution"
+                      defaults="Hide attribution"
+                    />
+                  </FieldLabel>
+                </FieldContent>
+                <HideAttributionField
+                  defaultValue={hideAttribution}
+                  disabled={!customBrandingAllowed}
+                />
               </Field>
-            </FieldGroup>
-          </PageSectionContent>
-        </PageSection>
-      </PageSectionGroup>
-    </>
+              {envConfigured.hideAttribution ? (
+                <ConfiguredByEnvironmentVariableAlert />
+              ) : null}
+            </Field>
+          </FieldGroup>
+        </PageSectionContent>
+      </PageSection>
+    </PageSectionGroup>
   );
 }

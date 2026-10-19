@@ -2,7 +2,7 @@ import { prisma } from "@rallly/database";
 import { absoluteUrl } from "@rallly/utils/absolute-url";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { SessionRefresher } from "@/components/session-refresher";
 import { loadFooterLinks } from "@/features/instance-settings/loaders";
@@ -25,6 +25,7 @@ const getPollMetadata = cache(async (urlId: string) => {
       id: true,
       title: true,
       deleted: true,
+      schedulingMode: true,
       user: {
         select: {
           name: true,
@@ -49,7 +50,9 @@ export default async function Page(props: {
 }) {
   const params = await props.params;
 
-  await getPollMetadata(params.urlId);
+  const poll = await getPollMetadata(params.urlId);
+  if (poll.schedulingMode === "availability")
+    redirect(`/availability/${params.urlId}`);
 
   const trpc = await createPublicSSRHelper();
 

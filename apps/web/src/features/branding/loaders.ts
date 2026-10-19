@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { env } from "@/env";
 import { getInstanceSettings } from "@/features/instance-settings/data";
-import { loadInstanceLicense } from "@/features/licensing/data";
+import { getWhiteLabelAddon } from "@/features/licensing/data";
 import { DEFAULT_PRIMARY_COLOR } from "./constants";
 import { getCustomBrandingConfig } from "./data";
 import { getPrimaryColorVars } from "./utils";
@@ -16,8 +16,8 @@ import { getPrimaryColorVars } from "./utils";
  * environment variable because no database value has been set yet.
  */
 export const loadBrandingSettings = cache(async () => {
-  const [license, db, resolved] = await Promise.all([
-    loadInstanceLicense(),
+  const [customBrandingAllowed, db, resolved] = await Promise.all([
+    getWhiteLabelAddon(),
     getInstanceSettings(),
     getCustomBrandingConfig(),
   ]);
@@ -30,7 +30,7 @@ export const loadBrandingSettings = cache(async () => {
     getPrimaryColorVars(primaryColor).dark;
 
   return {
-    hasWhiteLabelAddon: license?.whiteLabelAddon ?? false,
+    customBrandingAllowed,
     appName: db.appName ?? env.APP_NAME,
     primaryColor,
     primaryColorDark,

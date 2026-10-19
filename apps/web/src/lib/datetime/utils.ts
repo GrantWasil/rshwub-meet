@@ -56,6 +56,28 @@ export function normalizeTimeZone(timeZone: string | undefined | null) {
   }
 }
 
+/** Machine-readable wall-clock parts for timezone arithmetic, never display text. */
+export function createWallClockReader(timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  return (instant: number) => {
+    const parts = formatter.formatToParts(instant);
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value;
+    return {
+      date: `${value("year")}-${value("month")}-${value("day")}`,
+      minute: Number(value("hour")) * 60 + Number(value("minute")),
+    };
+  };
+}
+
 /** Narrows a stored value to a TimeFormat; anything else means "unset". */
 export function normalizeTimeFormat(
   value: string | undefined | null,

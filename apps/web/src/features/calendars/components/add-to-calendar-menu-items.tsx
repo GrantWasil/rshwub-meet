@@ -15,13 +15,20 @@ import { Trans } from "@/i18n/client";
  * Emits only menu items so the same calendar destinations can be rendered
  * inside a dropdown menu or nested in a submenu.
  */
-export function AddToCalendarMenuItems({ eventId }: { eventId: string }) {
+export function AddToCalendarMenuItems({
+  eventId,
+  calendarPath,
+}: {
+  eventId: string;
+  calendarPath?: string;
+}) {
+  const basePath = calendarPath ?? `/api/event/${eventId}`;
   return (
     <>
       <DropdownMenuItem
         render={
           <a
-            href={`/api/event/${eventId}/google-calendar`}
+            href={`${basePath}/google-calendar`}
             target="_blank"
             rel="noopener noreferrer"
           />
@@ -33,7 +40,7 @@ export function AddToCalendarMenuItems({ eventId }: { eventId: string }) {
       <DropdownMenuItem
         render={
           <a
-            href={`/api/event/${eventId}/office365`}
+            href={`${basePath}/office365`}
             target="_blank"
             rel="noopener noreferrer"
           />
@@ -45,7 +52,7 @@ export function AddToCalendarMenuItems({ eventId }: { eventId: string }) {
       <DropdownMenuItem
         render={
           <a
-            href={`/api/event/${eventId}/outlook`}
+            href={`${basePath}/outlook`}
             target="_blank"
             rel="noopener noreferrer"
           />
@@ -57,7 +64,7 @@ export function AddToCalendarMenuItems({ eventId }: { eventId: string }) {
       <DropdownMenuItem
         render={
           <a
-            href={`/api/event/${eventId}/yahoo`}
+            href={`${basePath}/yahoo`}
             target="_blank"
             rel="noopener noreferrer"
           />
@@ -67,9 +74,7 @@ export function AddToCalendarMenuItems({ eventId }: { eventId: string }) {
         <Trans i18nKey="yahoo" defaults="Yahoo" />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem
-        render={<a href={`/api/event/${eventId}/ics`} download />}
-      >
+      <DropdownMenuItem render={<a href={`${basePath}/ics`} download />}>
         <DownloadIcon />
         <Trans i18nKey="downloadICSFile" defaults="Download ICS file" />
       </DropdownMenuItem>

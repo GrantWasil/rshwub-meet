@@ -22,6 +22,13 @@ enum PollKind {
   @@map("poll_kind")
 }
 
+enum PollSchedulingMode {
+  options
+  availability
+
+  @@map("poll_scheduling_mode")
+}
+
 enum PollClosedReason {
   auto
   manual
@@ -42,10 +49,14 @@ model Poll {
   status                  PollStatus        @default(open)
   closedReason            PollClosedReason? @map("closed_reason")
   kind                    PollKind          @default(date)
+  schedulingMode          PollSchedulingMode @default(options) @map("scheduling_mode")
+  availabilityConfig      Json?             @map("availability_config")
+  managementTokenHash     String?           @map("management_token_hash")
   deleted                 Boolean           @default(false)
   deletedAt               DateTime?         @map("deleted_at")
   eventId                 String?           @unique @map("event_id")
   scheduledEventId        String?           @map("scheduled_event_id")
+  finalizedOptionId       String?           @unique @map("finalized_option_id")
   hideParticipants        Boolean           @default(false) @map("hide_participants")
   hideScores              Boolean           @default(false) @map("hide_scores")
   disableComments         Boolean           @default(true) @map("disable_comments")
@@ -54,7 +65,8 @@ model Poll {
 
   user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   scheduledEvent ScheduledEvent? @relation(fields: [scheduledEventId], references: [id], onDelete: SetNull)
-  options        Option[]
+  options        Option[]        @relation("PollOptions")
+  finalizedOption Option?         @relation("FinalizedPollOption", fields: [finalizedOptionId], references: [id], onDelete: SetNull)
   participants   Participant[]
   comments       Comment[]
   votes          Vote[]
@@ -79,6 +91,7 @@ model Participant {
   pollId    String    @map("poll_id")
   locale    String?
   timeZone  String?   @map("time_zone")
+  availability Json?
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime? @updatedAt @map("updated_at")
 
@@ -151,7 +164,8 @@ model Option {
 
   votes Vote[]
 
-  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  poll Poll @relation("PollOptions", fields: [pollId], references: [id], onDelete: Cascade)
+  finalizedPoll Poll? @relation("FinalizedPollOption")
 
   @@index([pollId], type: Hash)
   @@map("options")

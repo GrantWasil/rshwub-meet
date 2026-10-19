@@ -1,5 +1,5 @@
 import { isSelfHosted } from "@/lib/constants";
 
-// Guest poll creation is a cloud growth surface, gated by its own switch
+// This community fork supports account-free creation on its own instance.
 export const isQuickCreateEnabled =
-  !isSelfHosted && process.env.QUICK_CREATE_ENABLED === "true";
+  isSelfHosted || process.env.QUICK_CREATE_ENABLED === "true";

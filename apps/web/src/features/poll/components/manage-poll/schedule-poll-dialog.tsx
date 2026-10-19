@@ -87,9 +87,11 @@ function DateIcon({ start }: { start: Date }) {
 export const SchedulePollForm = ({
   name,
   onSubmit,
+  disabled = false,
 }: {
   name: string;
-  onSubmit?: (data: ScheduleFormData) => void;
+  onSubmit?: (data: ScheduleFormData) => void | Promise<void>;
+  disabled?: boolean;
 }) => {
   const poll = usePoll();
 
@@ -133,83 +135,83 @@ export const SchedulePollForm = ({
       <form
         id={name}
         className="space-y-4"
-        onSubmit={form.handleSubmit((data) => {
-          onSubmit?.(data);
-        })}
+        onSubmit={form.handleSubmit((data) => onSubmit?.(data))}
       >
-        <FormField
-          control={form.control}
-          name="selectedOptionId"
-          render={({ field }) => {
-            return (
-              <FormItem className="relative">
-                <FormLabel htmlFor={field.name}>
-                  <Trans i18nKey="dates" defaults="Dates" />
-                </FormLabel>
-                <FormControl>
-                  <RadioGroup
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    className="grid max-h-96 gap-2 overflow-y-auto rounded-xl bg-gray-100 p-2 dark:bg-gray-900"
-                  >
-                    {options.map((option) => {
-                      const allDay = option.duration === 0;
+        <fieldset disabled={disabled}>
+          <FormField
+            control={form.control}
+            name="selectedOptionId"
+            render={({ field }) => {
+              return (
+                <FormItem className="relative">
+                  <FormLabel htmlFor={field.name}>
+                    <Trans i18nKey="dates" defaults="Dates" />
+                  </FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="grid max-h-96 gap-2 overflow-y-auto rounded-xl bg-gray-100 p-2 dark:bg-gray-900"
+                    >
+                      {options.map((option) => {
+                        const allDay = option.duration === 0;
 
-                      return (
-                        <label
-                          key={option.id}
-                          htmlFor={option.id}
-                          className={cn(
-                            "group flex select-none items-start gap-4 rounded-lg border bg-card p-3 text-base",
-                            field.value === option.id ? "" : "",
-                          )}
-                        >
-                          <RadioGroupItem id={option.id} value={option.id} />
-                          <div className="grow">
-                            <div className="flex gap-x-4">
-                              <DateIcon start={option.startTime} />
-                              <div className="grow whitespace-nowrap">
-                                <div className="font-medium text-sm">
-                                  <EventDate
-                                    value={option.startTime}
-                                    allDay={allDay}
-                                    timeZone={poll.timeZone}
-                                  />
+                        return (
+                          <label
+                            key={option.id}
+                            htmlFor={option.id}
+                            className={cn(
+                              "group flex select-none items-start gap-4 rounded-lg border bg-card p-3 text-base",
+                              field.value === option.id ? "" : "",
+                            )}
+                          >
+                            <RadioGroupItem id={option.id} value={option.id} />
+                            <div className="grow">
+                              <div className="flex gap-x-4">
+                                <DateIcon start={option.startTime} />
+                                <div className="grow whitespace-nowrap">
+                                  <div className="font-medium text-sm">
+                                    <EventDate
+                                      value={option.startTime}
+                                      allDay={allDay}
+                                      timeZone={poll.timeZone}
+                                    />
+                                  </div>
+                                  <div className="text-muted-foreground text-sm">
+                                    <EventTimeRange
+                                      start={option.startTime}
+                                      end={
+                                        new Date(
+                                          option.startTime.getTime() +
+                                            option.duration * 60_000,
+                                        )
+                                      }
+                                      allDay={allDay}
+                                      timeZone={poll.timeZone}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="text-muted-foreground text-sm">
-                                  <EventTimeRange
-                                    start={option.startTime}
-                                    end={
-                                      new Date(
-                                        option.startTime.getTime() +
-                                          option.duration * 60_000,
-                                      )
-                                    }
-                                    allDay={allDay}
-                                    timeZone={poll.timeZone}
-                                  />
+                                <div>
+                                  <ConnectedScoreSummary optionId={option.id} />
                                 </div>
                               </div>
-                              <div>
-                                <ConnectedScoreSummary optionId={option.id} />
+                              <div className="mt-4">
+                                <VoteSummaryProgressBar
+                                  {...scoreByOptionId[option.id]}
+                                  total={participants.length}
+                                />
                               </div>
                             </div>
-                            <div className="mt-4">
-                              <VoteSummaryProgressBar
-                                {...scoreByOptionId[option.id]}
-                                total={participants.length}
-                              />
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </RadioGroup>
-                </FormControl>
-              </FormItem>
-            );
-          }}
-        />
+                          </label>
+                        );
+                      })}
+                    </RadioGroup>
+                  </FormControl>
+                </FormItem>
+              );
+            }}
+          />
+        </fieldset>
       </form>
     </Form>
   );
@@ -217,10 +219,18 @@ export const SchedulePollForm = ({
 
 export function SchedulePollDialog(props: DialogProps) {
   const poll = usePoll();
+  const queryClient = trpc.useUtils();
   const scheduleEvent = trpc.polls.book.useMutation();
   return (
-    <Dialog {...props}>
-      <DialogContent size="2xl">
+    <Dialog
+      {...props}
+      onOpenChange={(open) => {
+        if (scheduleEvent.isPending) return;
+        scheduleEvent.reset();
+        props.onOpenChange?.(open);
+      }}
+    >
+      <DialogContent size="2xl" showCloseButton={!scheduleEvent.isPending}>
         <DialogHeader>
           <DialogTitle>
             <Trans i18nKey="schedulePoll" defaults="Schedule" />
@@ -234,21 +244,33 @@ export function SchedulePollDialog(props: DialogProps) {
         </DialogHeader>
         <SchedulePollForm
           name="schedule-form"
-          onSubmit={(data) => {
-            scheduleEvent.mutate({
-              pollId: poll.id,
-              optionId: data.selectedOptionId,
-              notify: data.notify,
-            });
-            props.onOpenChange?.(false);
+          disabled={scheduleEvent.isPending}
+          onSubmit={async (data) => {
+            try {
+              await scheduleEvent.mutateAsync({
+                pollId: poll.id,
+                optionId: data.selectedOptionId,
+                notify: data.notify,
+              });
+              await queryClient.polls.get.invalidate({ urlId: poll.id });
+              props.onOpenChange?.(false);
+            } catch {
+              // The mutation's error remains visible; retain the chosen option.
+            }
           }}
         />
+        {scheduleEvent.error ? (
+          <p role="alert" className="text-destructive text-sm">
+            {scheduleEvent.error.message}
+          </p>
+        ) : null}
         <DialogFooter>
-          <DialogClose render={<Button />}>
+          <DialogClose render={<Button disabled={scheduleEvent.isPending} />}>
             <Trans i18nKey="cancel" />
           </DialogClose>
           <Button
             loading={scheduleEvent.isPending}
+            disabled={scheduleEvent.isPending}
             type="submit"
             form="schedule-form"
             variant="primary"

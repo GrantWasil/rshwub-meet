@@ -19,11 +19,11 @@ describe("deriveInstancePolicy", () => {
   });
 
   describe("spaceBrandingAllowed", () => {
-    it("suppresses space branding on a white label instance", () => {
+    it("allows space branding regardless of an imported white label license", () => {
       expect(
         deriveInstancePolicy({ isSelfHosted: true, whiteLabelAddon: true })
           .spaceBrandingAllowed,
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it("allows space branding on a self-hosted instance without the addon", () => {
@@ -42,7 +42,7 @@ describe("deriveInstancePolicy", () => {
   });
 
   describe("spaceAttributionConfigurable", () => {
-    it("is licensed at instance level on a self-hosted instance", () => {
+    it("is controlled at instance level on a self-hosted instance", () => {
       expect(
         deriveInstancePolicy({ isSelfHosted: true, whiteLabelAddon: false })
           .spaceAttributionConfigurable,

@@ -1,0 +1,81 @@
+# Image-only production stack. Build in GitHub Actions, never on the 4 GB VPS.
+# Openship imports only its supported Compose fields. Apply resource limits and
+# verify loopback port binding in Openship as described in the deployment guide.
+services:
+  web:
+    image: ${RSHWUB_MEET_IMAGE:?Set the published ghcr.io image digest}
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_BASE_URL: https://meet.rshwub.com
+      NEXT_PUBLIC_SELF_HOSTED: "true"
+      DATABASE_URL: postgresql://rallly:${POSTGRES_PASSWORD:?Generate a database password}@db:5432/rallly
+      SECRET_PASSWORD: ${SECRET_PASSWORD:?Generate a session secret}
+      APP_NAME: Rshwub Meet
+      EMAIL_PROVIDER: smtp
+      SMTP_HOST: smtp.resend.com
+      SMTP_PORT: "2465"
+      SMTP_SECURE: "true"
+      SMTP_REJECT_UNAUTHORIZED: "true"
+      SMTP_DEBUG: "false"
+      SMTP_USER: resend
+      SMTP_PWD: ${SMTP_PWD:?Set a Resend sending API key}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:?Set an address that receives support mail}
+      NOREPLY_EMAIL: ${NOREPLY_EMAIL:?Set a sender on your verified Resend domain}
+      NOREPLY_EMAIL_NAME: Rshwub Meet
+      EMAIL_LOGIN_ENABLED: "true"
+      REGISTRATION_ENABLED: "true"
+      RATE_LIMIT_ENABLED: "true"
+      MAINTENANCE_MODE: ${MAINTENANCE_MODE:-false}
+      MAINTENANCE_BYPASS_TOKEN: ${MAINTENANCE_BYPASS_TOKEN:?Generate a maintenance token}
+      HIDE_ATTRIBUTION: "false"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=768
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--noproxy", "*", "http://127.0.0.1:3000/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    # These fields apply to native Docker Compose. Openship needs the equivalent
+    # limits set in the service resource controls; do not assume it imports them.
+    mem_limit: 1g
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  db:
+    image: ${POSTGRES_IMAGE:?Set a postgres 18 image digest}
+    restart: unless-stopped
+    # No ports: database access stays inside the project network.
+    environment:
+      POSTGRES_USER: rallly
+      POSTGRES_DB: rallly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate a database password}
+    volumes:
+      # PostgreSQL 18 mounts its parent data directory (not the pre-18 path).
+      - db-data:/var/lib/postgresql
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=60", "-c", "work_mem=4MB"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "rallly", "-d", "rallly"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 768m
+    cpus: 0.75
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  db-data:

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 218 36" fill="none">
+  <title>Rshwub Meet</title>
+  <rect x="2" y="2" width="32" height="32" rx="9" fill="#4F46E5"/>
+  <path d="M10 22v-8m8 12V10m8 12v-8" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <text x="44" y="25" fill="#292640" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="700" letter-spacing="-.7">Rshwub<tspan font-weight="400" letter-spacing="-.5"> Meet</tspan></text>
+</svg>

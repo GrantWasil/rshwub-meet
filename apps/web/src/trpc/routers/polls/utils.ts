@@ -1,11 +1,22 @@
 import { TRPCError } from "@trpc/server";
 import {
   getParticipant,
-  hasPollAdminAccess,
+  isOptionsPoll,
   listParticipantIdsByToken,
 } from "@/features/poll/data";
+import { loadPollAdminAccess as hasPollAdminAccess } from "@/features/poll/management/loaders";
 
 type Actor = { id: string; isGuest: boolean };
+
+/** The legacy endpoints cannot edit availability grids or their final selection. */
+export async function requireOptionsPoll(pollId: string) {
+  if (!(await isOptionsPoll(pollId))) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Use the availability poll page for this action",
+    });
+  }
+}
 
 /**
  * Proves the caller may edit a response. Two proofs are accepted: the token

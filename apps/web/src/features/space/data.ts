@@ -7,9 +7,8 @@ import { cache } from "react";
 
 import { isBillingEnabled } from "@/features/billing/constants";
 import { getSpaceSubscription } from "@/features/billing/data";
+import { SELF_HOSTED_CAPABILITIES } from "@/features/instance-policy/constants";
 import { getInstancePolicy } from "@/features/instance-policy/data";
-import { cached_getInstanceLicense } from "@/features/licensing/data";
-import type { LicenseType } from "@/features/licensing/schema";
 import type { MemberDTO } from "@/features/space/member/types";
 import { effectiveSpaceMemberWhere } from "@/features/space/member/utils";
 import {
@@ -67,50 +66,16 @@ export async function getSpaceSeatCount(spaceId: string) {
  * Default seat limit for spaces without active subscriptions
  */
 const DEFAULT_SEAT_LIMIT = 1;
-const MAX_SEAT_LIMIT = 100;
-
-/**
- * Returns the seat limit for self-hosted instances based on license type
- */
-function getSelfHostedSeatLimit(licenseType: LicenseType | null): number {
-  if (!licenseType) {
-    return DEFAULT_SEAT_LIMIT;
-  }
-
-  switch (licenseType) {
-    case "PLUS":
-      return 5;
-    case "ORGANIZATION":
-      return 50;
-    case "ENTERPRISE":
-      return MAX_SEAT_LIMIT;
-    default:
-      return DEFAULT_SEAT_LIMIT;
-  }
-}
 
 /**
  * Gets the total number of seats available for a space
- * Handles both cloud-hosted (Stripe subscription) and self-hosted (license-based) deployments
+ * Self-hosted seats are unrestricted by this fork's local capability policy.
+ * Hosted billing behavior is retained for compatibility with upstream.
  */
 export async function getTotalSeatsForSpace(spaceId: string): Promise<number> {
   try {
     if (!isBillingEnabled) {
-      // Without billing, seats come from the instance license
-      const license = await cached_getInstanceLicense();
-
-      if (!license) {
-        // No license found, return default limit
-        return DEFAULT_SEAT_LIMIT;
-      }
-
-      // If license has explicit seats defined, use that
-      if (license.seats && license.seats > 0) {
-        return Math.min(license.seats, MAX_SEAT_LIMIT);
-      }
-
-      // Otherwise, use the license type to determine seat limit
-      return getSelfHostedSeatLimit(license.type);
+      return SELF_HOSTED_CAPABILITIES.seatLimit;
     } else {
       // For cloud-hosted instances, get seat count from Stripe subscription
       const subscription = await getSpaceSubscription(spaceId);

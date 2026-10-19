@@ -1,13 +1,13 @@
 import { shortUrl } from "@rallly/utils/absolute-url";
 import { TRPCError } from "@trpc/server";
 import * as z from "zod";
-import { hasPollAdminAccess } from "@/features/poll/data";
 import { listPollInvites } from "@/features/poll/invite/data";
 import type { PollInviteListItem } from "@/features/poll/invite/types";
 import {
   derivePollInviteStatus,
   getPollInvitePath,
 } from "@/features/poll/invite/utils";
+import { loadPollAdminAccess as hasPollAdminAccess } from "@/features/poll/management/loaders";
 import { privateProcedure, router } from "../../trpc";
 
 export const invites = router({

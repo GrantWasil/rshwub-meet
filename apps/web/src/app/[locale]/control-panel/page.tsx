@@ -16,29 +16,25 @@ import {
   SettingsPageHeader,
   SettingsPageTitle,
 } from "@/components/settings-layout";
-import { DEFAULT_SEAT_LIMIT } from "@/features/licensing/constants";
-import { loadInstanceLicense } from "@/features/licensing/data";
+import { getUserLimit } from "@/features/licensing/data";
 import { getUserCount } from "@/features/user/data";
 import { Trans } from "@/i18n/client";
 import { VersionTile } from "./version-tile";
 
 async function loadData() {
-  const [userCount, license] = await Promise.all([
+  const [userCount, userLimit] = await Promise.all([
     getUserCount(),
-    loadInstanceLicense(),
+    getUserLimit(),
   ]);
 
   return {
     userCount,
-    license,
+    userLimit,
   };
 }
 
 export default async function AdminPage() {
-  const { userCount, license } = await loadData();
-
-  const userLimit = license?.seats ?? DEFAULT_SEAT_LIMIT;
-  const tier = license?.type;
+  const { userCount, userLimit } = await loadData();
 
   return (
     <SettingsPage>
@@ -89,15 +85,7 @@ export default async function AdminPage() {
                 <PageIcon>
                   <KeySquareIcon />
                 </PageIcon>
-                {tier ? (
-                  <span className="text-primary text-sm capitalize">
-                    {tier}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground text-sm">
-                    <Trans i18nKey="unlicensed" defaults="Unlicensed" />
-                  </span>
-                )}
+                <span className="text-muted-foreground text-sm">AGPL-3.0</span>
               </div>
               <TileTitle>
                 <Trans i18nKey="license" defaults="License" />

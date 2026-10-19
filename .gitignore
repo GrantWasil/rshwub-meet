@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules
+.pnpm-store/
 /.pnp
 .pnp.js
 
@@ -10,6 +11,7 @@ node_modules
 
 # next.js
 .next/
+.next-build/
 /out/
 
 # production
@@ -52,3 +54,9 @@ next-env.d.ts
 .claude/launch.json
 # Radix -> Base UI migration reports (local skill state)
 .migration/
+
+# Local deployment secrets and backups
+deploy/backup.env
+*.age
+*.dump
+*.key

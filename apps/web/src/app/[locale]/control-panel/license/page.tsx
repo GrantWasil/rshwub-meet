@@ -1,23 +1,4 @@
-import { buttonVariants } from "@rallly/ui";
-import { Badge } from "@rallly/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@rallly/ui/card";
-
-import { Field, FieldContent, FieldGroup, FieldTitle } from "@rallly/ui/field";
-import { KeySquareIcon, PaletteIcon, ShoppingBagIcon } from "lucide-react";
 import type { Metadata } from "next";
-import {
-  EmptyState,
-  EmptyStateDescription,
-  EmptyStateFooter,
-  EmptyStateIcon,
-  EmptyStateTitle,
-} from "@/components/empty-state";
-import {
-  PageSection,
-  PageSectionContent,
-  PageSectionHeader,
-  PageSectionTitle,
-} from "@/components/page-layout";
 import {
   SettingsPage,
   SettingsPageContent,
@@ -25,22 +6,9 @@ import {
   SettingsPageHeader,
   SettingsPageTitle,
 } from "@/components/settings-layout";
-import { AddLicenseKeyButton } from "@/features/licensing/components/add-license-key-button";
-import { RefreshLicenseButton } from "@/features/licensing/components/refresh-license-button";
-import { RemoveLicenseButton } from "@/features/licensing/components/remove-license-button";
-import { loadInstanceLicense } from "@/features/licensing/data";
 import { Trans } from "@/i18n/client";
-import { getTranslation } from "@/i18n/server";
-import { Time } from "@/lib/datetime/time";
 
-async function loadData() {
-  const license = await loadInstanceLicense();
-  return { license };
-}
-
-export default async function LicensePage() {
-  const { license } = await loadData();
-
+export default function LicensePage() {
   return (
     <SettingsPage>
       <SettingsPageHeader>
@@ -48,190 +16,52 @@ export default async function LicensePage() {
           <Trans i18nKey="license" defaults="License" />
         </SettingsPageTitle>
         <SettingsPageDescription>
-          <Trans
-            i18nKey="licenseKeyDescription"
-            defaults="Manage your instance license"
-          />
+          Rshwub Meet is a community fork of Rallly.
         </SettingsPageDescription>
       </SettingsPageHeader>
       <SettingsPageContent>
-        {license ? (
-          <>
-            <PageSection variant="card">
-              <PageSectionHeader className="flex items-center justify-between gap-4">
-                <PageSectionTitle>
-                  <Trans i18nKey="licenseDetails" defaults="License details" />
-                </PageSectionTitle>
-                <div className="flex shrink-0 gap-2">
-                  <RefreshLicenseButton />
-                  <RemoveLicenseButton />
-                </div>
-              </PageSectionHeader>
-              <PageSectionContent>
-                <FieldGroup variant="divided">
-                  <Field orientation="responsive">
-                    <FieldContent>
-                      <FieldTitle>
-                        <Trans i18nKey="licenseType" defaults="License type" />
-                      </FieldTitle>
-                    </FieldContent>
-                    <div className="font-mono text-sm">
-                      <span className="text-primary capitalize">
-                        {license.type}
-                      </span>
-                      {license.seats ? (
-                        <span className="ml-2 text-muted-foreground">
-                          (
-                          <Trans
-                            i18nKey="seatCount"
-                            defaults="{count, plural, one {# seat} other {# seats}}"
-                            values={{ count: license.seats }}
-                          />
-                          )
-                        </span>
-                      ) : null}
-                    </div>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldContent>
-                      <FieldTitle>
-                        <Trans i18nKey="licenseKey" defaults="License key" />
-                      </FieldTitle>
-                    </FieldContent>
-                    <div className="select-all font-mono text-sm">
-                      {license.licenseKey}
-                    </div>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldContent>
-                      <FieldTitle>
-                        <Trans
-                          i18nKey="licenseeName"
-                          defaults="Licensee name"
-                        />
-                      </FieldTitle>
-                    </FieldContent>
-                    <div className="font-mono text-sm">
-                      {license.licenseeName ?? "-"}
-                    </div>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldContent>
-                      <FieldTitle>
-                        <Trans
-                          i18nKey="licenseeEmail"
-                          defaults="Licensee email"
-                        />
-                      </FieldTitle>
-                    </FieldContent>
-                    <div className="font-mono text-sm">
-                      {license.licenseeEmail ?? "-"}
-                    </div>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldContent>
-                      <FieldTitle>
-                        <Trans
-                          i18nKey="purchaseDate"
-                          defaults="Purchase date"
-                        />
-                      </FieldTitle>
-                    </FieldContent>
-                    <div className="font-mono text-sm">
-                      <Time value={license.issuedAt} preset="date" />
-                    </div>
-                  </Field>
-                </FieldGroup>
-              </PageSectionContent>
-            </PageSection>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <Card>
-                <CardHeader className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2">
-                    <PaletteIcon className="size-4" />
-                    <CardTitle>
-                      <Trans
-                        i18nKey="whiteLabelAddon"
-                        defaults="White Label Add-on"
-                      />
-                    </CardTitle>
-                  </div>
-                  <div>
-                    {license.whiteLabelAddon ? (
-                      <Badge variant="green">
-                        <Trans i18nKey="enabled" defaults="Enabled" />
-                      </Badge>
-                    ) : (
-                      <Badge>
-                        <Trans i18nKey="disabled" defaults="Disabled" />
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    <Trans
-                      i18nKey="whiteLabelAddonDescription"
-                      defaults="This add-on allows you to brand Rallly with your own logo and colors."
-                    />
-                  </p>
-                  <p className="mt-4 text-sm">
-                    <a
-                      href="https://support.rallly.co/self-hosting/white-labeling"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-link"
-                    >
-                      <Trans i18nKey="learnMore" defaults="Learn more" />
-                    </a>
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </>
-        ) : (
-          <EmptyState className="h-full">
-            <EmptyStateIcon>
-              <KeySquareIcon />
-            </EmptyStateIcon>
-            <EmptyStateTitle>
-              <Trans i18nKey="noLicenseKey" defaults="No license key found" />
-            </EmptyStateTitle>
-            <EmptyStateDescription>
-              <Trans
-                i18nKey="noLicenseKeyDescription"
-                defaults="This instance doesn’t have a license key yet."
-              />
-            </EmptyStateDescription>
-            <EmptyStateFooter className="flex gap-2">
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href="https://support.rallly.co/self-hosting/licensing"
-                className={buttonVariants()}
-              >
-                <ShoppingBagIcon data-icon="inline-start" />
-                <Trans i18nKey="purchaseLicense" defaults="Purchase license" />
-              </a>
-              <AddLicenseKeyButton />
-            </EmptyStateFooter>
-          </EmptyState>
-        )}
+        <div className="max-w-prose space-y-4 text-sm leading-relaxed">
+          <p>
+            This self-hosted fork includes unlimited users, space members, and
+            simultaneous polls, plus custom branding. These are this fork’s
+            product settings; no Rallly commercial license is required or
+            represented as active.
+          </p>
+          <p>
+            The code remains licensed under the GNU Affero General Public
+            License v3. Rallly’s copyright and license notices are preserved.
+            Anyone using this service can access its corresponding source.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <a
+              className="text-link"
+              href="https://github.com/GrantWasil/rshwub-meet"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Rshwub Meet source
+            </a>
+            <a
+              className="text-link"
+              href="https://github.com/GrantWasil/rshwub-meet/blob/main/LICENSE"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              AGPL-3.0 license
+            </a>
+            <a
+              className="text-link"
+              href="https://github.com/lukevella/rallly"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Upstream Rallly
+            </a>
+          </div>
+        </div>
       </SettingsPageContent>
     </SettingsPage>
   );
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-  const { locale } = await params;
-  const { t } = await getTranslation(locale);
-  return {
-    title: t("license", {
-      defaultValue: "License",
-    }),
-  };
-}
+export const metadata: Metadata = { title: "License and source" };
