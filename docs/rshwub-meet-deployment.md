@@ -6,7 +6,7 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 
 ## Rollout status — October 19, 2026
 
-**Meet is live at https://meet.rshwub.com.** Revision `819eca368bd115cf481c2ad4e7d891ff6e63a46e` is deployed; the public status endpoint returns HTTP 200 with the database connected. Availability defaults to a typical Monday–Sunday week with 30-minute cells and one shared sticky time column; specific-date availability remains available. Classic and specific-date availability, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the launch checks below. Passkey runtime and production HTTP checks pass; the owner confirmed real-device enrollment and sign-in, corroborated by the account's saved passkey and last login method. The owner has a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. A database dump from the half-hour rollout remains on the production host, and its isolated restore passed. Independent encrypted off-host backups remain unconfigured.
+**Meet is live at https://meet.rshwub.com.** Revision `07503ef3a611eaf06f3c0b082f31ffc5a8a89e5c` is deployed; the public status endpoint returns HTTP 200 with the database connected. Availability defaults to a typical Monday–Sunday week with 30-minute cells and one shared sticky time column; specific-date availability remains available. Classic and specific-date availability, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the launch checks below. Passkey runtime and production HTTP checks pass; the owner confirmed real-device enrollment and sign-in, corroborated by the account's saved passkey and last login method. The owner has a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. A database dump from the half-hour rollout remains on the production host, and its isolated restore passed. Independent encrypted off-host backups remain unconfigured.
 
 | Item | Confirmed value or current state |
 | --- | --- |
@@ -18,8 +18,8 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 | Public application | Proxied `meet` A record points to `96.126.112.36`; public HTTPS and `/api/status` verified |
 | Deployment dashboard | `deploy.rshwub.com` through Cloudflare proxy; Access allow policy for `dev@grantwasil.com` only is active; Access challenge and owner Openship login verified |
 | Origin TLS | Both hostname routes verified with Cloudflare Full (strict); manual Origin CA certificate has exactly these two SANs and expires October 15, 2041; private key stays on the host |
-| Application | Zero-count display revision `819eca3` live; 159 finished migrations, none unfinished; web 1 GiB / 1 CPU, database 768 MiB / 0.75 CPU confirmed |
-| Application image | `ghcr.io/grantwasil/rshwub-meet@sha256:e505deee8989ed96bd95f7eee88086d951a59edbabe2f3f3273eda6b9a93459e`; OCI revision `819eca368bd115cf481c2ad4e7d891ff6e63a46e`; Linux amd64 |
+| Application | Compact-grid revision `07503ef` live; 159 finished migrations, none unfinished; web 1 GiB / 1 CPU, database 768 MiB / 0.75 CPU confirmed |
+| Application image | `ghcr.io/grantwasil/rshwub-meet@sha256:88ba611a777fe7b2d6dee05c3154e43edfab4925e8bce11a0d252be4c0076936`; OCI revision `07503ef3a611eaf06f3c0b082f31ffc5a8a89e5c`; Linux amd64 |
 | Database storage | Existing `openship-rshwub-meet-db-data` volume preserved; no public database ports |
 | Recovery verification | Half-hour pre-release database dump retained on the production host, mode `0600`, 120,039 bytes; all 34 tables restored with matching row fingerprints; migration rehearsal preserved saved answers and unrelated data |
 | Independent backup | Off-host encrypted database destination, credentials, timer, and retained-backup restore remain unconfigured/unverified |
@@ -178,9 +178,21 @@ For real recovery:
 
 Never assume an application-image rollback reverses Prisma migrations. Before updates, trigger and verify an independent backup; record the old and new image digests and review migration compatibility. If the old app cannot read the new schema, recovery requires a compatible forward fix or a separate database restore with an explicit decision about post-backup data loss.
 
+## Compact availability grid — deployed and verified
+
+Revision `07503ef3a611eaf06f3c0b082f31ffc5a8a89e5c` is deployed as `ghcr.io/grantwasil/rshwub-meet@sha256:88ba611a777fe7b2d6dee05c3154e43edfab4925e8bce11a0d252be4c0076936`, built by [workflow 39359787144](https://github.com/GrantWasil/rshwub-meet/actions/runs/39359787144), which succeeded at 02:40:37 UTC on October 20. Public health passed at 02:42:16 UTC and strict origin TLS at 02:42:18 UTC (20:42 Colorado time on October 19). The rollout preserved the existing database, environment, and runtime settings. Both protected deployment env copies are synchronized; validation passed.
+
+Desktop rows shrink from 44 to 32 pixels, with an inherited CSS variable keeping time labels, placeholders, and cells aligned. `any-pointer: coarse` retains 44-pixel targets on touch-capable devices, including hybrids. Header padding decreases from 12 to 8 pixels, and date-shift badges use a 12-pixel line height. There was no migration or saved-data change: all seven stable table fingerprints matched the 02:40:16 UTC baseline, including 8 polls and 6 participants, with 159 finished migrations and none unfinished. Evidence is retained at `/root/rshwub-deploy/compact-before-07503ef.json` and `/root/rshwub-deploy/compact-after-07503ef.json`.
+
+Local verification passed 103 availability tests across 12 files, Biome, the Impeccable layout detector, and diff checks. The dark desktop fixture showed 12 rows and 84 cells in a 421-pixel grid with equal client and scroll heights, down from 573 pixels of full content; the default 17:00–23:00 range fit without vertical scrolling. A 388-pixel light mobile iframe with touch emulation retained 44-pixel rows and labels, aligned uneven placeholders, and had no page overflow. Mouse selection and ArrowDown/Space worked; console warning and error logs were empty. Mobile verification remained local and emulated.
+
+The exact image passed full-runtime smoke verification at 02:41:33 UTC: 159 migrations, 34 tables, none unfinished, authentication and login checks, no real credentials, and verified cleanup. Protected evidence is at `~/.local/share/rshwub-meet-deploy/image-smoke-07503ef3a611eaf06f3c0b082f31ffc5a8a89e5c.json`.
+
+Live desktop QA created **Compact grid verification** (`XQv0dk848mI2INaXza_oX`). Both editor and results grids showed 12 rows, 84 cells, 32-pixel rows, and equal client and scroll heights of 421 pixels. A Monday 22:30–23:00 Yes response persisted after reload; a database check confirmed one 30-minute response. There were no visible 0/N labels or console errors. The exact QA poll was soft-deleted at 02:42:55 UTC, a browser reload confirmed **Page not found**, and `/availability/new` was restored. Evidence is at `/root/rshwub-deploy/compact-ui-07503ef.json`.
+
 ## Empty availability counts — deployed and verified
 
-Revision `819eca368bd115cf481c2ad4e7d891ff6e63a46e` is deployed as `ghcr.io/grantwasil/rshwub-meet@sha256:e505deee8989ed96bd95f7eee88086d951a59edbabe2f3f3273eda6b9a93459e`, published by successful [workflow 39358539292](https://github.com/GrantWasil/rshwub-meet/actions/runs/39358539292). Public health passed at 02:31:18 UTC and strict origin TLS at 02:31:49 UTC on October 20 (20:31 Colorado time on October 19). The web-only rollout preserved the database container, environment, and runtime settings. Both protected deployment env copies are synchronized; local validation passed.
+Revision `819eca368bd115cf481c2ad4e7d891ff6e63a46e` was deployed as `ghcr.io/grantwasil/rshwub-meet@sha256:e505deee8989ed96bd95f7eee88086d951a59edbabe2f3f3273eda6b9a93459e`, published by successful [workflow 39358539292](https://github.com/GrantWasil/rshwub-meet/actions/runs/39358539292). Public health passed at 02:31:18 UTC and strict origin TLS at 02:31:49 UTC on October 20 (20:31 Colorado time on October 19). The web-only rollout preserved the database container, environment, and runtime settings. Both protected deployment env copies were synchronized to that release's digest; local validation passed.
 
 Result ratios appear only for positive Yes counts; maybe-only cells retain their question-mark count, and cells with neither response stay blank, including polls with zero participants. Accessible names, titles, selected-cell details, and editing controls retain their counts and behavior. The English legend explains that empty cells have no availability marked. No database migration was included. Postflight confirmed 159 finished migrations and none unfinished. Stable fingerprints for all pre-existing rows across seven application tables matched the 02:22:28 UTC baseline. Full-table hashes differed because two polls and one user were created afterward; comparison by creation timestamp excluded those new rows and verified preservation of the baseline records. Evidence is retained at `/root/rshwub-deploy/zero-count-before-819eca3.json` and `/root/rshwub-deploy/zero-count-after-819eca3.json`.
 
@@ -206,7 +218,7 @@ Revision `88852a59b80a71df5e66d499b693716c3a603879` was deployed as `ghcr.io/gra
 
 New availability polls default to a typical Monday–Sunday week with no calendar dates. Everyone answers in the event's shared time zone, and results rank recurring windows of the chosen duration alongside the overlap grid. Weekly polls show weekdays and times; they do not offer dated finalization or calendar export. Specific-date availability remains optional, retaining its calendar, viewer time-zone conversion, finalization, and ICS export. Existing dated polls keep their mode and event duration; classic polls are unchanged.
 
-The grid uses 30-minute cells, sticky day headings, 44-pixel targets, clearer response symbols and maybe counts, and improved keyboard/touch selection. The repository includes the project-local Impeccable skill used for this UI work.
+That release introduced 30-minute cells, sticky day headings, 44-pixel targets, clearer response symbols and maybe counts, and improved keyboard/touch selection. The repository includes the project-local Impeccable skill used for this UI work.
 
 That release applied three data migrations in order:
 
@@ -248,8 +260,8 @@ Before future image updates, run the retained full-runtime smoke test with the e
 
 ```sh
 python3 deploy/smoke-test-image.py \
-  --image ghcr.io/grantwasil/rshwub-meet@sha256:e505deee8989ed96bd95f7eee88086d951a59edbabe2f3f3273eda6b9a93459e \
-  --revision 819eca368bd115cf481c2ad4e7d891ff6e63a46e
+  --image ghcr.io/grantwasil/rshwub-meet@sha256:88ba611a777fe7b2d6dee05c3154e43edfab4925e8bce11a0d252be4c0076936 \
+  --revision 07503ef3a611eaf06f3c0b082f31ffc5a8a89e5c
 ```
 
 It requires local Docker and Python 3. It starts an empty pinned PostgreSQL 18 database and the actual release image on an internal-only network, with no published ports or real credentials. HTTP probes run against the app container's loopback. The corrected passkey image applied all 156 migrations, rendered `/login`, and passed health, response-shape, required user verification, no-store, anonymous enrollment and origin checks. It created no users or passkeys and removed only its own containers, network and volume. Success evidence is saved only after verified cleanup, at `~/.local/share/rshwub-meet-deploy/image-smoke-<revision>.json`; diagnostic logs in that directory are protected. Require a zero exit before deployment.
