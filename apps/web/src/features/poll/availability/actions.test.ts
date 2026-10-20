@@ -61,7 +61,7 @@ const config = {
   timeZone: "America/Denver",
   startMinute: 1080,
   endMinute: 1320,
-  slotMinutes: 15 as const,
+  slotMinutes: 30 as const,
   durationMinutes: 120,
 };
 
@@ -104,6 +104,20 @@ describe("availability action authorization", () => {
       spaceId: "space",
       input: { title: "Meet", config },
     });
+  });
+
+  it.each([
+    15, 60,
+  ] as const)("rejects new polls using %i-minute increments before creation", async (slotMinutes) => {
+    mocks.actor.mockResolvedValue({ id: "guest", isGuest: true });
+
+    await expect(async () =>
+      createAvailabilityPollAction({
+        title: "Meet",
+        config: { ...config, slotMinutes },
+      }),
+    ).rejects.toThrow("New polls use 30-minute increments");
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 
   it("rejects another guest editing a response by guessed id", async () => {

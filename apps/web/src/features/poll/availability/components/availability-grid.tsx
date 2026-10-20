@@ -2,10 +2,12 @@
 
 import { cn } from "@rallly/ui";
 import { Button } from "@rallly/ui/button";
+import { CheckIcon, HelpCircleIcon, MinusIcon } from "lucide-react";
 import React from "react";
 import { Trans, useTranslation } from "@/i18n/client";
 import {
   formatDate,
+  formatDateParts,
   formatDateTime,
   formatDateTimeRange,
 } from "@/lib/datetime/format";
@@ -52,7 +54,12 @@ export function AvailabilityGrid({
   const [touchPaint, setTouchPaint] = React.useState(false);
   const [focusKey, setFocusKey] = React.useState(slots[0]?.start);
   const [selectedSlot, setSelectedSlot] = React.useState<GridSlot>();
+  const activeFocusKey = slots.some((slot) => slot.start === focusKey)
+    ? focusKey
+    : slots[0]?.start;
+  const activeSlot = slots.find((slot) => slot.start === selectedSlot?.start);
   const gridRef = React.useRef<HTMLDivElement>(null);
+  const paintedPointer = React.useRef(false);
   const gesture = React.useRef<{
     column: number;
     row: number;
@@ -82,6 +89,7 @@ export function AvailabilityGrid({
   }
 
   function focusCell(column: number, row: number) {
+    if (!columns.length) return;
     const safeColumn = Math.max(0, Math.min(columns.length - 1, column));
     const safeRow = Math.max(
       0,
@@ -94,24 +102,41 @@ export function AvailabilityGrid({
       ?.focus();
   }
 
+  function endGesture(event: React.PointerEvent<HTMLDivElement>) {
+    if (gesture.current?.pointerId === event.pointerId) {
+      gesture.current = null;
+    }
+  }
+
+  if (!slots.length) {
+    return (
+      <p className="rounded-xl border border-dashed p-5 text-muted-foreground text-sm">
+        <Trans
+          i18nKey="availabilityNoTimes"
+          defaults="No time slots are available for these dates."
+        />
+      </p>
+    );
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {onChange ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-lg text-muted-foreground text-sm">
             <Trans
               i18nKey="availabilityGridInstructions"
-              defaults="Drag across times to paint. Use arrow keys to move and Space to mark a time, or use the time range form below."
+              defaults="Drag to mark times. On touch screens, scroll or tap a time; choose Paint to drag. Use arrow keys and Space, or the time range form below."
             />
           </p>
           <fieldset
-            className="flex gap-1"
+            className="flex min-w-0 gap-1 rounded-lg bg-muted/50 p-1"
             aria-label={t("availabilityTouchMode", {
               defaultValue: "Touch interaction",
             })}
           >
             <Button
-              size="sm"
+              className="min-h-11 sm:min-h-9"
               type="button"
               variant={!touchPaint ? "default" : "ghost"}
               aria-pressed={!touchPaint}
@@ -120,7 +145,7 @@ export function AvailabilityGrid({
               <Trans i18nKey="availabilityScrollMode" defaults="Scroll" />
             </Button>
             <Button
-              size="sm"
+              className="min-h-11 sm:min-h-9"
               type="button"
               variant={touchPaint ? "default" : "ghost"}
               aria-pressed={touchPaint}
@@ -133,7 +158,7 @@ export function AvailabilityGrid({
       ) : null}
       <div
         ref={gridRef}
-        className="max-h-[34rem] overflow-auto overscroll-contain rounded-xl border"
+        className="max-h-[34rem] min-w-0 max-w-full overflow-auto overscroll-contain rounded-xl border bg-card"
         style={{ touchAction: onChange && touchPaint ? "none" : "auto" }}
         onPointerMove={(event) => {
           if (!gesture.current || gesture.current.pointerId !== event.pointerId)
@@ -145,15 +170,9 @@ export function AvailabilityGrid({
             paint(Number(target.dataset.column), Number(target.dataset.row));
           }
         }}
-        onPointerUp={() => {
-          gesture.current = null;
-        }}
-        onPointerCancel={() => {
-          gesture.current = null;
-        }}
-        onLostPointerCapture={() => {
-          gesture.current = null;
-        }}
+        onPointerUp={endGesture}
+        onPointerCancel={endGesture}
+        onLostPointerCapture={endGesture}
       >
         <div
           className="grid min-w-full"
@@ -161,17 +180,46 @@ export function AvailabilityGrid({
             gridTemplateColumns: `repeat(${columns.length}, minmax(7.5rem, 1fr))`,
           }}
         >
+          <div className="sticky top-0 z-20 col-span-full grid grid-cols-subgrid border-b bg-card">
+            {columns.map(([date]) => {
+              const day = new Date(`${date}T12:00:00Z`);
+              return (
+                <div
+                  key={date}
+                  className="space-y-0.5 border-r px-2 py-3 text-center text-sm last:border-r-0"
+                >
+                  <div className="text-muted-foreground text-xs">
+                    {formatDateParts(day, { locale, timeZone: "UTC" }).weekday}
+                  </div>
+                  <div className="font-medium">
+                    {formatDate(day, { locale, preset: "monthDay" })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
           {columns.map(([date, daySlots], column) => (
-            <div key={date} className="border-r last:border-r-0">
-              <div className="sticky top-0 z-10 border-b bg-card px-2 py-3 text-center font-medium text-sm">
-                {formatDate(new Date(`${date}T12:00:00Z`), {
-                  locale,
-                  preset: "weekdayMonthDay",
-                })}
-              </div>
+            <div key={date} className="min-w-0 border-r last:border-r-0">
               {daySlots.map((slot, row) => {
                 const vote = values?.[slot.start] ?? "no";
                 const count = counts?.[slot.start];
+                const VoteIcon =
+                  vote === "yes"
+                    ? CheckIcon
+                    : vote === "maybe"
+                      ? HelpCircleIcon
+                      : MinusIcon;
+                const localDate = formatDateTime(new Date(slot.start), {
+                  locale,
+                  timeZone,
+                  preset: "monthDay",
+                });
+                const hasDateShift =
+                  localDate !==
+                  formatDate(new Date(`${date}T12:00:00Z`), {
+                    locale,
+                    preset: "monthDay",
+                  });
                 const range = formatDateTimeRange(
                   new Date(slot.start),
                   new Date(slot.end),
@@ -190,18 +238,19 @@ export function AvailabilityGrid({
                     type="button"
                     data-column={column}
                     data-row={row}
-                    tabIndex={focusKey === slot.start ? 0 : -1}
+                    tabIndex={activeFocusKey === slot.start ? 0 : -1}
                     aria-label={description}
                     aria-pressed={onChange ? vote !== "no" : undefined}
                     title={description}
                     className={cn(
-                      "flex h-9 w-full select-none items-center justify-between gap-1 border-b border-dashed px-2 text-xs tabular-nums outline-none transition-colors last:border-b-0 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
+                      "flex h-11 w-full select-none items-center justify-between gap-1 border-b border-dashed px-2 text-left text-xs tabular-nums outline-none transition-colors last:border-b-0 hover:brightness-95 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50 dark:hover:brightness-125",
                       onChange ? voteStyles[vote] : "text-foreground",
+                      "[--availability-heat:var(--color-green-500)] dark:[--availability-heat:var(--color-green-900)]",
                     )}
                     style={
                       !onChange && count && participantCount
                         ? {
-                            backgroundColor: `color-mix(in srgb, var(--color-green-500) ${Math.round(((count.yes + count.maybe * 0.35) / participantCount) * 65)}%, var(--color-card))`,
+                            backgroundColor: `color-mix(in srgb, var(--availability-heat) ${Math.round(((count.yes + count.maybe * 0.35) / participantCount) * 65)}%, var(--color-card))`,
                           }
                         : undefined
                     }
@@ -211,6 +260,7 @@ export function AvailabilityGrid({
                     }}
                     onPointerDown={(event) => {
                       setSelectedSlot(slot);
+                      paintedPointer.current = false;
                       if (
                         !onChange ||
                         event.button !== 0 ||
@@ -218,6 +268,7 @@ export function AvailabilityGrid({
                       )
                         return;
                       event.preventDefault();
+                      paintedPointer.current = true;
                       event.currentTarget.focus();
                       gridRef.current?.setPointerCapture(event.pointerId);
                       gesture.current = {
@@ -230,14 +281,12 @@ export function AvailabilityGrid({
                     }}
                     onClick={(event) => {
                       setSelectedSlot(slot);
-                      // Native keyboard activation has detail 0. Touch in scroll
-                      // mode remains a normal tap, without intercepting scrolling.
+                      // Keyboard activation and taps also work in browsers that
+                      // deliver click as MouseEvent rather than PointerEvent.
+                      // A painted drag must not be applied again as a single cell.
                       if (
                         onChange &&
-                        (event.detail === 0 ||
-                          (!touchPaint &&
-                            event.nativeEvent instanceof PointerEvent &&
-                            event.nativeEvent.pointerType === "touch"))
+                        (event.detail === 0 || !paintedPointer.current)
                       ) {
                         onChange({ ...values, [slot.start]: brush });
                       }
@@ -264,21 +313,36 @@ export function AvailabilityGrid({
                       }
                     }}
                   >
-                    <span>
-                      {formatDateTime(new Date(slot.start), {
-                        locale,
-                        timeZone,
-                        preset: "time",
-                      })}
+                    <span className="min-w-0">
+                      <span className="block whitespace-nowrap">
+                        {formatDateTime(new Date(slot.start), {
+                          locale,
+                          timeZone,
+                          preset: "time",
+                        })}
+                      </span>
+                      {hasDateShift ? (
+                        <span className="block text-[0.625rem]">
+                          {localDate}
+                        </span>
+                      ) : null}
                     </span>
-                    <span aria-hidden="true">
-                      {onChange
-                        ? vote === "yes"
-                          ? "✓"
-                          : vote === "maybe"
-                            ? "?"
-                            : "—"
-                        : `${count?.yes ?? 0}/${participantCount}`}
+                    <span aria-hidden="true" className="shrink-0 text-right">
+                      {onChange ? (
+                        <VoteIcon className="size-3.5" />
+                      ) : (
+                        <>
+                          <span className="block font-medium">
+                            {count?.yes ?? 0}/{participantCount}
+                          </span>
+                          {count?.maybe ? (
+                            <span className="flex items-center justify-end gap-0.5">
+                              <HelpCircleIcon className="size-3" />
+                              {count.maybe}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
                     </span>
                   </button>
                 );
@@ -287,11 +351,11 @@ export function AvailabilityGrid({
           ))}
         </div>
       </div>
-      <p className="min-h-5 text-muted-foreground text-xs" aria-live="polite">
-        {selectedSlot
+      <p className="min-h-10 text-muted-foreground text-xs" aria-live="polite">
+        {activeSlot
           ? formatDateTimeRange(
-              new Date(selectedSlot.start),
-              new Date(selectedSlot.end),
+              new Date(activeSlot.start),
+              new Date(activeSlot.end),
               {
                 locale,
                 timeZone,
@@ -300,6 +364,22 @@ export function AvailabilityGrid({
               },
             )
           : timeZone}
+        {activeSlot && !onChange ? (
+          <span className="mt-1 block">
+            <Trans
+              i18nKey="availabilityWindowCounts"
+              defaults="{yes} yes · {maybe} maybe · {no} unavailable"
+              values={{
+                yes: counts?.[activeSlot.start]?.yes ?? 0,
+                maybe: counts?.[activeSlot.start]?.maybe ?? 0,
+                no:
+                  participantCount -
+                  (counts?.[activeSlot.start]?.yes ?? 0) -
+                  (counts?.[activeSlot.start]?.maybe ?? 0),
+              }}
+            />
+          </span>
+        ) : null}
       </p>
     </div>
   );

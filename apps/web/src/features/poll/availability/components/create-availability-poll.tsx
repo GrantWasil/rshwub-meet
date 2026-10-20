@@ -57,7 +57,7 @@ export function CreateAvailabilityPoll() {
         timeZone: "America/Denver",
         startMinute: 17 * 60,
         endMinute: 23 * 60,
-        slotMinutes: 15,
+        slotMinutes: 30,
         durationMinutes: 120,
       },
     },
@@ -246,7 +246,7 @@ export function CreateAvailabilityPoll() {
                             id={`availability-${name}`}
                             type="time"
                             required
-                            step={900}
+                            step={1800}
                             value={clockValue(field.value)}
                             onChange={(event) => {
                               const [hours, minutes] = event.target.value
@@ -271,20 +271,20 @@ export function CreateAvailabilityPoll() {
                   <Input
                     id="availability-duration"
                     type="number"
-                    min={15}
+                    min={30}
                     max={1440}
-                    step={15}
+                    step={30}
                     required
                     {...form.register("config.durationMinutes", {
                       valueAsNumber: true,
-                      min: 15,
+                      min: 30,
                       max: 1440,
                     })}
                   />
                   <p className="text-muted-foreground text-xs">
                     <Trans
                       i18nKey="availabilityDurationHelp"
-                      defaults="Results find a continuous block this long. The grid uses 15-minute intervals."
+                      defaults="Results find a continuous block this long. The grid uses 30-minute intervals."
                     />
                   </p>
                 </div>

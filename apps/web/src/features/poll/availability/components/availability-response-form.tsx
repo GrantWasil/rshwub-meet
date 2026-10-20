@@ -211,7 +211,7 @@ export function AvailabilityResponseForm({
               </Button>
             ))}
           </fieldset>
-          <fieldset disabled={pending} className="space-y-4">
+          <fieldset disabled={pending} className="min-w-0 space-y-4">
             <AvailabilityGrid
               slots={slots}
               values={values}

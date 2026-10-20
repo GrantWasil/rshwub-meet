@@ -28,6 +28,27 @@ describe("availability grid", () => {
     });
   });
 
+  it.each([
+    ["America/Denver", "2026-10-21T00:00:00.000Z"],
+    ["Asia/Kathmandu", "2026-10-20T12:15:00.000Z"],
+  ])("generates half-hour slots in %s", (timeZone, firstStart) => {
+    const slots = getAvailabilitySlots({
+      ...config,
+      timeZone,
+      slotMinutes: 30,
+    });
+
+    expect(slots).toHaveLength(8);
+    expect(slots[0].start).toBe(firstStart);
+    expect(slots.map((slot) => slot.minute)).toEqual([
+      1080, 1110, 1140, 1170, 1200, 1230, 1260, 1290,
+    ]);
+    for (const slot of slots) {
+      expect(Date.parse(slot.end) - Date.parse(slot.start)).toBe(30 * 60_000);
+      expect(slot.date).toBe("2026-10-20");
+    }
+  });
+
   it("omits nonexistent spring-forward times", () => {
     const slots = getAvailabilitySlots({
       ...config,
@@ -78,6 +99,36 @@ describe("availability grid", () => {
       { start: slots[0].start, end: slots[1].end, type: "yes" },
       { start: slots[2].start, end: slots[2].end, type: "ifNeedBe" },
     ]);
+  });
+
+  it("normalizes responses on a half-hour grid without changing vote types", () => {
+    const halfHourConfig = { ...config, slotMinutes: 30 as const };
+    const slots = getAvailabilitySlots(halfHourConfig);
+
+    expect(
+      normalizeAvailabilityIntervals(halfHourConfig, [
+        { ...slots[1], type: "yes" },
+        { ...slots[0], type: "yes" },
+        { ...slots[2], type: "ifNeedBe" },
+      ]),
+    ).toEqual([
+      { start: slots[0].start, end: slots[1].end, type: "yes" },
+      { start: slots[2].start, end: slots[2].end, type: "ifNeedBe" },
+    ]);
+  });
+
+  it.each([
+    ["2026-10-21T00:00:00.000Z", "2026-10-21T00:15:00.000Z"],
+    ["2026-10-21T00:15:00.000Z", "2026-10-21T00:30:00.000Z"],
+  ])("rejects quarter-hour response boundaries on a half-hour poll", (start, end) => {
+    expect(() =>
+      normalizeAvailabilityIntervals({ ...config, slotMinutes: 30 }, [
+        { start, end, type: "yes" },
+      ]),
+    ).toThrow("time grid");
+    expect(
+      normalizeAvailabilityIntervals(config, [{ start, end, type: "yes" }]),
+    ).toEqual([{ start, end, type: "yes" }]);
   });
 
   it.each([

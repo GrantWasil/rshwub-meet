@@ -1,0 +1,2 @@
+# Platform engines are local runtime caches; the launcher downloads them when needed.
+/scripts/bin/

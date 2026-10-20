@@ -84,7 +84,15 @@ export const createAvailabilityPollSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(5000).optional(),
   location: z.string().trim().max(500).optional(),
-  config: availabilityConfigSchema,
+  // Stored polls may still use a legacy grid until the data migration runs.
+  // New submissions must not recreate those grids.
+  config: availabilityConfigSchema.refine(
+    (config) => config.slotMinutes === 30,
+    {
+      path: ["slotMinutes"],
+      message: "New polls use 30-minute increments",
+    },
+  ),
 });
 
 export const saveAvailabilityResponseSchema = z.object({
