@@ -6,7 +6,7 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 
 ## Rollout status — October 19, 2026
 
-**Meet is live at https://meet.rshwub.com.** Revision `3991c2e52ac8091c7c1d03d2c15c7e18cee8decb` is deployed; the public status endpoint returns HTTP 200 with the database connected. Both scheduling modes, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the launch checks below. Passkey runtime and production HTTP checks now pass; the owner's real-device enrollment/sign-in remains pending. The owner has a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. Independent off-host backups remain unconfigured. A restore check without a retained archive is not a recovery point.
+**Meet is live at https://meet.rshwub.com.** Revision `3991c2e52ac8091c7c1d03d2c15c7e18cee8decb` is deployed; the public status endpoint returns HTTP 200 with the database connected. Both scheduling modes, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the launch checks below. Passkey runtime and production HTTP checks pass; the owner confirmed real-device enrollment and sign-in, corroborated by the account's saved passkey and last login method. The owner has a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. Independent off-host backups remain unconfigured. A restore check without a retained archive is not a recovery point.
 
 | Item | Confirmed value or current state |
 | --- | --- |
@@ -177,7 +177,7 @@ For real recovery:
 
 Never assume an application-image rollback reverses Prisma migrations. Before updates, trigger and verify an independent backup; record the old and new image digests and review migration compatibility. If the old app cannot read the new schema, recovery requires a compatible forward fix or a separate database restore with an explicit decision about post-backup data loss.
 
-## Passkey rollout — deployed, real-device check pending
+## Passkey rollout — deployed and verified
 
 The current image is `ghcr.io/grantwasil/rshwub-meet@sha256:f2ec49823011c91f4e2dc520d5cb78d3d828db6a0fcc0cf468bcf484ba728c7c`, built from revision `3991c2e52ac8091c7c1d03d2c15c7e18cee8decb` by [workflow run 39346291745](https://github.com/GrantWasil/rshwub-meet/actions/runs/39346291745). Its OCI revision and Linux amd64 platform were verified before deployment. Public and strict origin-TLS checks passed at 00:22 UTC on October 20 (18:22 Colorado time on October 19).
 
@@ -209,13 +209,15 @@ Deploy only after the implementation checks pass and its immutable image's OCI r
 
 After rollout, verify the named passkey migration has finished with no unfinished migrations, public HTTPS still works, the exact new revision appears in `/api/status`, and existing poll/account data remains accessible. Recheck origin TLS against the Cloudflare Origin CA if Openship rewrites the route. The new table is additive; an application rollback does not remove enrolled credentials, and the older image cannot use them for sign-in.
 
-The final real-device check is **pending**. On the deployed image:
+The final real-device check **passed** on October 19, 2026 (Colorado time). The owner reported that adding a passkey and signing back in both worked. A subsequent read-only production database check confirmed one passkey on the verified personal account and `lastLoginMethod: "passkey"`. Its instance role remained `user`, its space membership remained `ADMIN`, and ownership and roles matched the launch baseline. No credential IDs or public keys were included in the check output.
+
+For future enrollment or regression checks:
 
 1. Sign in to the verified personal account and open **Settings → Security → Passkeys** (`/settings/security`). If prompted, sign in again before changing passkeys.
 2. Choose **Add a passkey**, name it, and complete the browser/device or password-manager confirmation yourself. Passkeys belong to the account; neither a space Admin role nor instance administrator access is required.
 3. Confirm the passkey appears, then sign out and use **Sign in with a passkey** on the login page. Verify it opens the same account and its existing polls. Keep email sign-in available as recovery.
 
-Automated policy, migration, or UI tests do not establish that enrollment and sign-in work with the owner's real authenticator. Record that outcome separately after the user completes the device prompt.
+Automated policy, migration, or UI tests alone do not establish that enrollment and sign-in work with the owner's real authenticator. The owner's confirmation and account check above provide the separate real-device result; they do not establish compatibility with every browser or authenticator.
 
 ## Launch evidence — October 19, 2026
 
@@ -231,4 +233,4 @@ Verified:
 - Both poll modes finalized and exported the expected ICS instants: classic October 23, 2026 18:00–19:00 UTC; availability October 23 23:00 through October 24 00:00 UTC. Reopening preserved responses, and both final-time ICS endpoints returned 404. Calendar files already downloaded are not retracted by reopening or deleting a poll.
 - Production web-restart persistence and the isolated production snapshot restore passed as described above. The availability QA poll was soft-deleted through the UI; a fresh browser showed Page not found and its ICS endpoint returned HTTP 404. The streamed page itself returned HTTP 200, so the status code alone does not establish whether a poll is visible. The classic QA poll was reopened with votes preserved, then closed through the UI so it accepts no further responses. It remains as a disposable test record. Fresh browser reloads or availability's Refresh results are needed when comparing sessions; results are not pushed live.
 
-Since the launch checks, the owner created a verified personal account, the manual Linode launch snapshot reached **Success**, and the corrected passkey release passed runtime and production HTTP checks. The current account's space Admin membership and instance `user` role were verified against the live application database and left unchanged. Still outstanding: complete real-device passkey enrollment/sign-in and configure then test independent encrypted off-host backups. The closed classic QA record is retained for now. Keep the public source link pointed at the corresponding deployed revision. Do not describe the restore drill as a retained backup or report real-device touch testing as complete.
+Since the launch checks, the owner created a verified personal account, the manual Linode launch snapshot reached **Success**, and the corrected passkey release passed runtime, production HTTP and owner real-device enrollment/sign-in checks. The current account's space Admin membership and instance `user` role were verified against the live application database and left unchanged. Still outstanding: configure then test independent encrypted off-host backups. The closed classic QA record is retained for now. Keep the public source link pointed at the corresponding deployed revision. Do not describe the restore drill as a retained backup or report real-device touch testing as complete.
