@@ -6,7 +6,7 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 
 ## Rollout status — October 19, 2026
 
-**Meet is live at https://meet.rshwub.com.** Revision `88852a59b80a71df5e66d499b693716c3a603879` is deployed; the public status endpoint returns HTTP 200 with the database connected. Availability now defaults to a typical Monday–Sunday week with 30-minute cells; specific-date availability remains available. Classic and specific-date availability, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the launch checks below. Passkey runtime and production HTTP checks pass; the owner confirmed real-device enrollment and sign-in, corroborated by the account's saved passkey and last login method. The owner has a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. A pre-release database dump is now retained on the production host and its isolated restore passed. Independent encrypted off-host backups remain unconfigured.
+**Meet is live at https://meet.rshwub.com.** Revision `8355013c0e94a39cfad25407cd0f4d98c25ff9ae` is deployed; the public status endpoint returns HTTP 200 with the database connected. Availability defaults to a typical Monday–Sunday week with 30-minute cells and one shared sticky time column; specific-date availability remains available. Classic and specific-date availability, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the launch checks below. Passkey runtime and production HTTP checks pass; the owner confirmed real-device enrollment and sign-in, corroborated by the account's saved passkey and last login method. The owner has a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. A database dump from the half-hour rollout remains on the production host, and its isolated restore passed. Independent encrypted off-host backups remain unconfigured.
 
 | Item | Confirmed value or current state |
 | --- | --- |
@@ -18,10 +18,10 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 | Public application | Proxied `meet` A record points to `96.126.112.36`; public HTTPS and `/api/status` verified |
 | Deployment dashboard | `deploy.rshwub.com` through Cloudflare proxy; Access allow policy for `dev@grantwasil.com` only is active; Access challenge and owner Openship login verified |
 | Origin TLS | Both hostname routes verified with Cloudflare Full (strict); manual Origin CA certificate has exactly these two SANs and expires October 15, 2041; private key stays on the host |
-| Application | Weekly-availability revision `88852a5` live; no unfinished migrations; web 1 GiB / 1 CPU, database 768 MiB / 0.75 CPU confirmed |
-| Application image | `ghcr.io/grantwasil/rshwub-meet@sha256:2ca7398b48d5813ec69b25dedef3c71512ffe2d18433c89dbcace760392fbe03`; OCI revision `88852a59b80a71df5e66d499b693716c3a603879`; Linux amd64 |
+| Application | Shared-time-column revision `8355013` live; 159 finished migrations, none unfinished; web 1 GiB / 1 CPU, database 768 MiB / 0.75 CPU confirmed |
+| Application image | `ghcr.io/grantwasil/rshwub-meet@sha256:5be9bf5e20b59dba75150431687cb9de548f5865541b98d00a105abc6cb8d1ef`; OCI revision `8355013c0e94a39cfad25407cd0f4d98c25ff9ae`; Linux amd64 |
 | Database storage | Existing `openship-rshwub-meet-db-data` volume preserved; no public database ports |
-| Recovery verification | Pre-release database dump retained on the production host, mode `0600`, 120,039 bytes; all 34 tables restored with matching row fingerprints; migration rehearsal preserved saved answers and unrelated data |
+| Recovery verification | Half-hour pre-release database dump retained on the production host, mode `0600`, 120,039 bytes; all 34 tables restored with matching row fingerprints; migration rehearsal preserved saved answers and unrelated data |
 | Independent backup | Off-host encrypted database destination, credentials, timer, and retained-backup restore remain unconfigured/unverified |
 
 The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05:00 standard time. Linode reports manual snapshot `rshwub-meet-launch-2026-10-19`, created at 23:44 UTC on October 19 (17:44 Colorado time), as **Success**, with a duration of **5m 55s**. This is a confirmed provider recovery point before the passkey migration. It does not establish that the first scheduled daily backup has completed or that a full-machine restore has been rehearsed.
@@ -178,15 +178,27 @@ For real recovery:
 
 Never assume an application-image rollback reverses Prisma migrations. Before updates, trigger and verify an independent backup; record the old and new image digests and review migration compatibility. If the old app cannot read the new schema, recovery requires a compatible forward fix or a separate database restore with an explicit decision about post-backup data loss.
 
+## Shared time column — deployed and verified
+
+Revision `8355013c0e94a39cfad25407cd0f4d98c25ff9ae` is deployed as `ghcr.io/grantwasil/rshwub-meet@sha256:5be9bf5e20b59dba75150431687cb9de548f5865541b98d00a105abc6cb8d1ef`, built by successful [workflow 39357051626](https://github.com/GrantWasil/rshwub-meet/actions/runs/39357051626). Production health and strict origin TLS passed at 02:14:07–08 UTC on October 20 (20:14 Colorado time on October 19). The database container and volume, web environment, resource limits, and loopback binding were preserved. Both protected deployment env copies are synchronized to this digest; local env validation passed.
+
+Times appear once in a sticky left column, with centered votes and counts. Placeholders align rows across daylight-saving gaps, repeated hours, and viewer time-zone shifts; full accessible cell names remain available. Half-hour intervals and saved data are unchanged. There were no new migrations: postflight confirmed 159 finished, none unfinished, and unchanged stable fingerprints for seven application tables. Evidence is retained at `/root/rshwub-deploy/time-gutter-before-8355013.json` and `time-gutter-after-8355013.json` in the same directory.
+
+Validation passed 103 availability tests across 12 files, TypeScript, and Biome; independent review found no blockers. The actual-component preview at 1280 pixels showed 12 time labels and 84 aligned cells without repeated visible times inside cells. Within a 390-pixel mobile frame, the iframe and page were 388 pixels wide; the 336-pixel grid scrolled 816 pixels of content. At the maximum horizontal offset of 480 pixels, the time column stayed one pixel inside the grid's left border, and selecting Sunday 17:00 marked Yes. Light desktop and dark mobile preview consoles were empty. The mobile checks were local and emulated.
+
+The exact image passed the isolated full-runtime smoke test at 02:12:36 UTC on October 20: 159 migrations, 34 tables, zero users and passkeys, no real secrets, an internal-only network, and verified cleanup. Protected evidence is at `~/.local/share/rshwub-meet-deploy/image-smoke-8355013c0e94a39cfad25407cd0f4d98c25ff9ae.json`.
+
+Live desktop browser QA created the disposable **Time column verification** poll (`ccNNA1WSvmCX7Mx63-3kq`). Both response and results grids had 12 time-column labels, 84 aligned cells, and no visible times repeated inside cells. Four Monday 17:00–19:00 selections persisted after reload; a database check confirmed the 120-minute saved response. The console was empty. The exact QA poll was soft-deleted, and a live browser reload confirmed **Page not found**. The creation form was restored ready for use. Evidence is at `/root/rshwub-deploy/time-gutter-ui-8355013.json`.
+
 ## Weekly availability and half-hour rollout — deployed and verified
 
-Revision `88852a59b80a71df5e66d499b693716c3a603879` is deployed as `ghcr.io/grantwasil/rshwub-meet@sha256:2ca7398b48d5813ec69b25dedef3c71512ffe2d18433c89dbcace760392fbe03`, built by successful [workflow run 39355190469](https://github.com/GrantWasil/rshwub-meet/actions/runs/39355190469). Its OCI revision and Linux amd64 platform matched before deployment. Public health, reported revision, database connectivity, and strict origin TLS passed at 01:51:36 UTC on October 20 (19:51:36 Colorado time on October 19). The existing database container and volume, web environment, resource limits, and loopback binding were preserved. Both protected deployment env copies now reference the effective image digest.
+Revision `88852a59b80a71df5e66d499b693716c3a603879` was deployed as `ghcr.io/grantwasil/rshwub-meet@sha256:2ca7398b48d5813ec69b25dedef3c71512ffe2d18433c89dbcace760392fbe03`, built by successful [workflow run 39355190469](https://github.com/GrantWasil/rshwub-meet/actions/runs/39355190469). Its OCI revision and Linux amd64 platform matched before deployment. Public health, reported revision, database connectivity, and strict origin TLS passed at 01:51:36 UTC on October 20 (19:51:36 Colorado time on October 19). The existing database container and volume, web environment, resource limits, and loopback binding were preserved. Both protected deployment env copies were updated to that release's digest.
 
 New availability polls default to a typical Monday–Sunday week with no calendar dates. Everyone answers in the event's shared time zone, and results rank recurring windows of the chosen duration alongside the overlap grid. Weekly polls show weekdays and times; they do not offer dated finalization or calendar export. Specific-date availability remains optional, retaining its calendar, viewer time-zone conversion, finalization, and ICS export. Existing dated polls keep their mode and event duration; classic polls are unchanged.
 
 The grid uses 30-minute cells, sticky day headings, 44-pixel targets, clearer response symbols and maybe counts, and improved keyboard/touch selection. The repository includes the project-local Impeccable skill used for this UI work.
 
-The release applies three data migrations in order:
+That release applied three data migrations in order:
 
 1. `20261020005900_normalize_unused_availability_windows` expands incompatible daily windows to half-hour boundaries only when there are no saved availability answers.
 2. `20261020005930_preserve_archived_availability_answers` sets soft-deleted polls to 30-minute slots without rewriting historical answers, including partial 15-minute intervals. These polls remain inaccessible; any future restore flow must explicitly reconcile those partial answers.
@@ -226,8 +238,8 @@ Before future image updates, run the retained full-runtime smoke test with the e
 
 ```sh
 python3 deploy/smoke-test-image.py \
-  --image ghcr.io/grantwasil/rshwub-meet@sha256:2ca7398b48d5813ec69b25dedef3c71512ffe2d18433c89dbcace760392fbe03 \
-  --revision 88852a59b80a71df5e66d499b693716c3a603879
+  --image ghcr.io/grantwasil/rshwub-meet@sha256:5be9bf5e20b59dba75150431687cb9de548f5865541b98d00a105abc6cb8d1ef \
+  --revision 8355013c0e94a39cfad25407cd0f4d98c25ff9ae
 ```
 
 It requires local Docker and Python 3. It starts an empty pinned PostgreSQL 18 database and the actual release image on an internal-only network, with no published ports or real credentials. HTTP probes run against the app container's loopback. The corrected passkey image applied all 156 migrations, rendered `/login`, and passed health, response-shape, required user verification, no-store, anonymous enrollment and origin checks. It created no users or passkeys and removed only its own containers, network and volume. Success evidence is saved only after verified cleanup, at `~/.local/share/rshwub-meet-deploy/image-smoke-<revision>.json`; diagnostic logs in that directory are protected. Require a zero exit before deployment.
