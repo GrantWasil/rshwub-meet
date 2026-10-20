@@ -26,6 +26,11 @@ import { getInstanceBranding } from "@/emails/branding";
 import { env } from "@/env";
 import { linkAnonymousUser } from "@/features/auth/mutations";
 import {
+  enforcePasskeyAuthenticationOptions,
+  meetPasskeys,
+  protectPasskeyRequest,
+} from "@/features/auth/service";
+import {
   emailDomain,
   isEmailBlocked,
   isTemporaryEmail,
@@ -188,6 +193,7 @@ export const authLib = betterAuth({
   }),
   plugins: [
     admin(),
+    meetPasskeys,
     anonymous({
       emailDomainName: "rallly.co",
       generateName: async () => {
@@ -360,6 +366,7 @@ export const authLib = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      await protectPasskeyRequest(ctx);
       if (
         ctx.path.startsWith("/sign-in") ||
         ctx.path.startsWith("/email-otp")
@@ -406,6 +413,8 @@ export const authLib = betterAuth({
       }
     }),
     after: createAuthMiddleware(async (ctx) => {
+      const passkeyOptions = await enforcePasskeyAuthenticationOptions(ctx);
+      if (passkeyOptions) return passkeyOptions;
       // Locale cookie writes go through better-auth's response
       // (ctx.setCookie), never next/headers: mutating Next's cookie store
       // makes Next rebuild this handler's Set-Cookie headers through a

@@ -20,6 +20,7 @@ import {
 } from "../components/auth-page";
 import { AuthErrors } from "./components/auth-errors";
 import { LoginWithEmailForm } from "./components/login-email-form";
+import { LoginWithPasskey } from "./components/login-with-passkey";
 
 async function loadData() {
   const [isRegistrationEnabled, { t, i18n }] = await Promise.all([
@@ -122,8 +123,11 @@ export default async function LoginPage(props: {
         {isEmailLoginEnabled && (
           <LoginWithEmailForm isRegistrationEnabled={isRegistrationEnabled} />
         )}
-        {isEmailLoginEnabled && hasAlternateLoginMethods ? <OrDivider /> : null}
+        {isEmailLoginEnabled ? <OrDivider /> : null}
         <div className="grid gap-3">
+          {isEmailLoginEnabled ? (
+            <LoginWithPasskey redirectTo={searchParams?.redirectTo} />
+          ) : null}
           {hasOidc ? (
             <LoginWithOIDC
               name={env.OIDC_NAME}

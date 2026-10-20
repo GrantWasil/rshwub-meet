@@ -60,6 +60,7 @@
   },
   "pnpm": {
     "overrides": {
+      "@peculiar/asn1-schema": "2.11.0",
       "next@16.3.0": "16.4.2"
     }
   },

@@ -1,3 +1,4 @@
+import { passkeyClient } from "@better-auth/passkey/client";
 import { posthog } from "@rallly/posthog/client";
 import { absoluteUrl } from "@rallly/utils/absolute-url";
 import {
@@ -19,11 +20,13 @@ export const authClient = createAuthClient({
     genericOAuthClient(),
     lastLoginMethodClient(),
     anonymousClient(),
+    passkeyClient(),
   ],
 });
 
 export async function signOut() {
-  await authClient.signOut();
+  const result = await authClient.signOut();
+  if (result.error) throw new Error(result.error.message);
   posthog?.reset();
   clearBrowserQueryCache();
 }

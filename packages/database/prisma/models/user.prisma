@@ -67,6 +67,7 @@ model User {
   polls                   Poll[]
   notificationPreferences UserNotificationPreferences?
   accounts                Account[]
+  passkeys                Passkey[]
   participants            Participant[]
   paymentMethods          PaymentMethod[]
   spaceMemberInvites      SpaceMemberInvite[]
@@ -125,4 +126,23 @@ model Verification {
 
   @@index([identifier])
   @@map("verifications")
+}
+
+model Passkey {
+  id           String   @id @default(cuid())
+  name         String?
+  publicKey    String   @map("public_key") @db.Text
+  userId       String   @map("user_id")
+  credentialID String   @unique @map("credential_id")
+  counter      Int
+  deviceType   String   @map("device_type")
+  backedUp     Boolean  @map("backed_up")
+  transports   String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  aaguid       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkeys")
 }

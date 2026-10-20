@@ -32,6 +32,7 @@ import { Trans } from "@/i18n/client";
 import { getTranslation } from "@/i18n/server";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
 import { ChangePasswordDialog } from "./components/change-password-dialog";
+import { PasskeySettings } from "./components/passkey-settings";
 import { SetupPasswordDialog } from "./components/setup-password-dialog";
 
 export default async function SecurityPage() {
@@ -124,6 +125,7 @@ export default async function SecurityPage() {
                 </FieldGroup>
               </PageSectionContent>
             </PageSection>
+            <PasskeySettings />
           </PageSectionGroup>
         ) : (
           <Alert>

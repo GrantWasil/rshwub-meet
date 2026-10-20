@@ -45,6 +45,10 @@ const IGNORED_RELATIONS = new Map([
     "Auth plumbing, created alongside the guest account. Carries no user-authored data.",
   ],
   [
+    "passkeys",
+    "Account credentials. Registration requires a verified, non-anonymous user; removing a deleted account must also remove its credentials.",
+  ],
+  [
     "notificationPreferences",
     "Per-user settings, meaningless once the account is gone.",
   ],

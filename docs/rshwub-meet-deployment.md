@@ -6,13 +6,13 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 
 ## Rollout status — October 19, 2026
 
-**Meet is live at https://meet.rshwub.com.** Revision `82b924a42678678484150bddb9eeb04e09bd4149` is deployed; the public status endpoint returns HTTP 200 with the database connected. Both scheduling modes, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the checks below. Resend reports the owner's sign-in email delivered; owner inbox/code confirmation and app administrator setup remain pending. The first Linode snapshot is running, and independent off-host backups remain unconfigured. A restore check without a retained archive is not a recovery point.
+**Meet is live at https://meet.rshwub.com.** Revision `82b924a42678678484150bddb9eeb04e09bd4149` is deployed; the public status endpoint returns HTTP 200 with the database connected. Both scheduling modes, organizer recovery, finalization/calendar export, web-restart persistence, and an isolated restore of a consistent production database snapshot passed the checks below. The owner has since created a verified personal account; its space Admin role is distinct from instance-wide administration. The launch Linode snapshot completed successfully. Independent off-host backups remain unconfigured, and the passkey release described below is still pending deployment. A restore check without a retained archive is not a recovery point.
 
 | Item | Confirmed value or current state |
 | --- | --- |
 | Server | Linode `108605606`, label `rshwub-apps`, IPv4 `96.126.112.36`, Dallas |
 | OS and size | Ubuntu 24.04.4 LTS; Shared CPU 4 GB / 2 vCPU |
-| Provider backups | Linode Backups enabled; daily window 10:00–12:00 UTC; weekly backup day Sunday; launch snapshot running, first completed recovery point pending |
+| Provider backups | Linode Backups enabled; daily window 10:00–12:00 UTC; weekly backup day Sunday; manual launch snapshot confirmed **Success**, duration 5m 55s |
 | Provider firewall | TCP 22 from `204.57.19.102/32`; TCP 80/443 from the 22 official Cloudflare IPv4/IPv6 ranges only |
 | Personal deployment manager | Openship 0.9.3 installed and healthy; separate from the work instance |
 | Public application | Proxied `meet` A record points to `96.126.112.36`; public HTTPS and `/api/status` verified |
@@ -23,7 +23,7 @@ Budget selected for this project: **$24/month server + $5/month Linode Backups =
 | Recovery verification | Consistent production snapshot restored into a disposable isolated database; all 33 table counts and selected QA content matched; no archive retained |
 | Independent backup | Off-host encrypted database destination, credentials, timer, and retained-backup restore remain unconfigured/unverified |
 
-The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05:00 standard time. Snapshot `rshwub-meet-launch-2026-10-19` was initiated at 23:44 UTC on October 19 and currently reports **Running**. This is not a completed recovery point; confirm successful completion in Linode.
+The provider backup window is 04:00–06:00 Colorado daylight time or 03:00–05:00 standard time. Linode reports manual snapshot `rshwub-meet-launch-2026-10-19`, created at 23:44 UTC on October 19 (17:44 Colorado time), as **Success**, with a duration of **5m 55s**. This is a confirmed provider recovery point before the passkey migration. It does not establish that the first scheduled daily backup has completed or that a full-machine restore has been rehearsed.
 
 ## Deployment contract
 
@@ -85,9 +85,9 @@ The manifest uses `smtp.resend.com`, user `resend`, and a sending API key as `SM
 
 After deployment, verify receipt of an actual sign-in code at an external mailbox and check Resend's delivery result. A healthy web container does not prove email works. Record the sending quota and configure provider usage alerts.
 
-Set `INITIAL_ADMIN_EMAIL=dev@grantwasil.com` before launch. After signing in with that verified address, visit `/admin-setup` to claim the app's administrator role. Other addresses cannot claim it. This account is separate from the Openship administrator.
+`INITIAL_ADMIN_EMAIL` remains configured as `dev@grantwasil.com`. A verified account with that address can visit `/admin-setup` to claim the instance administrator role. Other addresses cannot claim it through that flow. This is separate from the Openship administrator and from a space's membership role.
 
-Launch status: Resend reports sign-in email `01a1568c-0366-76a5-80eb-f5251efe81fe` to `dev@grantwasil.com` as **DELIVERED**, sent using the restricted SMTP credential. Owner inbox confirmation/code entry, completed app sign-in, and the administrator claim are still pending. Openship login does not complete these application steps.
+Resend reports the initial sign-in email `01a1568c-0366-76a5-80eb-f5251efe81fe` to `dev@grantwasil.com` as **DELIVERED**, sent using the restricted SMTP credential. The owner subsequently created a verified personal account using another address. Its **Members** screen correctly shows **Owner** and **Admin** for its space, while the instance-wide account role remains `user`. **Control Panel** requires the separate instance role `admin`. The owner chose to keep the current role; passkey enrollment does not require instance administrator privileges. No role or `INITIAL_ADMIN_EMAIL` change was made.
 
 ## 4. Publish and configure the application
 
@@ -177,6 +177,26 @@ For real recovery:
 
 Never assume an application-image rollback reverses Prisma migrations. Before updates, trigger and verify an independent backup; record the old and new image digests and review migration compatibility. If the old app cannot read the new schema, recovery requires a compatible forward fix or a separate database restore with an explicit decision about post-backup data loss.
 
+## Passkey rollout — pending deployment
+
+The fork pins `@better-auth/passkey` to the same `1.6.30` version as Better Auth and its utility peer to `0.4.2`. The root override keeps `@peculiar/asn1-schema` at `2.11.0`, within all consumers' declared ranges: mixed schema registries caused valid P-256 signatures to fail. Keep the real cryptographic registration/assertion tests in `apps/web/src/features/auth/passkeys.test.ts` passing when upgrading these packages. Enrollment and credential changes require a verified non-guest account, an authoritative session created within 15 minutes, and no impersonation. The server requires WebAuthn user verification and binds credentials to the configured site origin/RP ID. Passkeys are disabled alongside email login on SSO-only instances.
+
+The passkey implementation is not part of deployed revision `82b924a`. Its additive migration, `20261020000100_add_passkeys`, was rehearsed against a **schema-only** copy of the production database in a disposable local PostgreSQL 18 container using the same pinned image digest as production. The container used `--network none`, 512 MiB of memory, and no published ports. No production user data was copied or modified.
+
+The rehearsal passed: 33 existing tables became 34; the new table has 11 columns, its primary key, unique credential-ID constraint and user lookup index. Synthetic records verified duplicate-credential rejection, rejection of a missing user, and update/delete cascades. The disposable container and volume were removed. The tested migration SHA-256 is `41ed6e880a1fcda2df2b1ed1a5e253082452a6aa76dae55010f6fca36a7b8b7f`; repeat the rehearsal if that SQL changes. Non-secret evidence and the reusable check script are in `~/.local/share/rshwub-meet-deploy/passkey-migration-verification.json` and `check-passkey-migration.py`.
+
+Deploy only after the implementation checks pass and its immutable image's OCI revision matches the reviewed commit. Use the existing VPS helper `/root/rshwub-deploy/04-update-web.py` with the approved `--image` and `--revision`. It updates only the existing web service, preserves its environment and resource limits, verifies that the production database container and volume remain unchanged, and checks the expected revision and database health. The image startup applies Prisma migrations. Keep both protected deployment env copies synchronized with the effective image digest; do not re-import the stack or replace its database service.
+
+After rollout, verify the named passkey migration has finished with no unfinished migrations, public HTTPS still works, the exact new revision appears in `/api/status`, and existing poll/account data remains accessible. Recheck origin TLS against the Cloudflare Origin CA if Openship rewrites the route. The new table is additive; an application rollback does not remove enrolled credentials, and the older image cannot use them for sign-in.
+
+The final real-device check is **pending**. Once the new image is live:
+
+1. Sign in to the verified personal account and open **Settings → Security → Passkeys** (`/settings/security`). If prompted, sign in again before changing passkeys.
+2. Choose **Add a passkey**, name it, and complete the browser/device or password-manager confirmation yourself. Passkeys belong to the account; neither a space Admin role nor instance administrator access is required.
+3. Confirm the passkey appears, then sign out and use **Sign in with a passkey** on the login page. Verify it opens the same account and its existing polls. Keep email sign-in available as recovery.
+
+Automated policy, migration, or UI tests do not establish that enrollment and sign-in work with the owner's real authenticator. Record that outcome separately after the user completes the device prompt.
+
 ## Launch evidence — October 19, 2026
 
 The deployed image is `ghcr.io/grantwasil/rshwub-meet@sha256:a65edd7cd2c6c0d473d665454f3df05a495ce915930a6f810012520342d3e02a`, built from revision `82b924a42678678484150bddb9eeb04e09bd4149` by [workflow run 39341356729](https://github.com/GrantWasil/rshwub-meet/actions/runs/39341356729). The non-secret operational evidence is retained locally at `~/.local/share/rshwub-meet-deploy/release-verification-82b924a.json` (recorded at 23:35:23 UTC).
@@ -191,4 +211,4 @@ Verified:
 - Both poll modes finalized and exported the expected ICS instants: classic October 23, 2026 18:00–19:00 UTC; availability October 23 23:00 through October 24 00:00 UTC. Reopening preserved responses, and both final-time ICS endpoints returned 404. Calendar files already downloaded are not retracted by reopening or deleting a poll.
 - Production web-restart persistence and the isolated production snapshot restore passed as described above. The availability QA poll was soft-deleted through the UI; a fresh browser showed Page not found and its ICS endpoint returned HTTP 404. The streamed page itself returned HTTP 200, so the status code alone does not establish whether a poll is visible. The classic QA poll was reopened with votes preserved, then closed through the UI so it accepts no further responses. It remains as a disposable test record. Fresh browser reloads or availability's Refresh results are needed when comparing sessions; results are not pushed live.
 
-Still outstanding: confirm the owner's actual OTP receipt/code entry, complete optional account sign-in and `/admin-setup`, confirm successful completion of the running Linode snapshot, and configure then test independent encrypted off-host backups. The closed classic QA record is retained for now. Keep the public source link pointed at the corresponding deployed revision. Do not describe the restore drill as a retained backup or report real-device touch testing as complete.
+Since the launch checks, the owner created a verified personal account and the manual Linode launch snapshot reached **Success**. The current account's space Admin membership and instance `user` role were verified against the live application database and left unchanged. Still outstanding: deploy and verify the passkey release, complete real-device passkey enrollment/sign-in, and configure then test independent encrypted off-host backups. The closed classic QA record is retained for now. Keep the public source link pointed at the corresponding deployed revision. Do not describe the restore drill as a retained backup or report real-device touch testing as complete.
