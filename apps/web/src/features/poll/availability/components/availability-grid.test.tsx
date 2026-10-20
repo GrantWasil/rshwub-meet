@@ -74,7 +74,9 @@ describe("availability grid interaction", () => {
       '[data-column="0"][data-row="0"]',
     );
     expect(first).toHaveAccessibleName(/Monday, 5:00 PM – 5:30 PM/);
-    expect(first).toHaveTextContent("5:00 PM");
+    expect(first).not.toHaveTextContent("5:00 PM");
+    expect(screen.getByText("5:00 PM", { exact: true })).toBeVisible();
+    expect(screen.getByText("5:30 PM", { exact: true })).toBeVisible();
     await user.tab();
     expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent(
       "Monday, 5:00 PM – 5:30 PM",
@@ -129,6 +131,41 @@ describe("availability grid interaction", () => {
     fireEvent.pointerUp(viewport, { pointerId: 1 });
     for (const cell of container.querySelectorAll("[data-column]"))
       expect(cell).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("skips missing daylight-saving times when navigating the shared rows", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const dstSlots = getAvailabilitySlots({
+      dates: ["2026-03-07", "2026-03-08"],
+      timeZone: "America/Denver",
+      startMinute: 60,
+      endMinute: 4 * 60,
+      slotMinutes: 30,
+      durationMinutes: 60,
+    });
+    const { container } = render(
+      <AvailabilityGrid
+        slots={dstSlots}
+        onChange={onChange}
+        timeZone="America/Denver"
+        locale="en-US"
+      />,
+    );
+    const beforeGap = container.querySelector<HTMLButtonElement>(
+      '[data-column="1"][data-row="1"]',
+    );
+    beforeGap?.focus();
+    await user.keyboard("{ArrowDown} ");
+
+    expect(
+      container.querySelector('[data-column="1"][data-row="4"]'),
+    ).toHaveFocus();
+    expect(onChange).toHaveBeenLastCalledWith({
+      "2026-03-08T09:00:00.000Z": "yes",
+    });
+    await user.keyboard("{ArrowUp}");
+    expect(beforeGap).toHaveFocus();
   });
 
   it("leaves touch scrolling alone until paint mode is selected", async () => {
@@ -357,6 +394,7 @@ describe("availability grid interaction", () => {
 
     expect(first).toBeVisible();
     expect(first).toHaveTextContent(/Oct(?:ober)? 21/);
-    expect(first).toHaveTextContent("5:00 AM");
+    expect(first).not.toHaveTextContent("5:00 AM");
+    expect(screen.getByText("5:00 AM", { exact: true })).toBeVisible();
   });
 });

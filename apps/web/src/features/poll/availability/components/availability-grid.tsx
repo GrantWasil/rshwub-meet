@@ -4,6 +4,7 @@ import { cn } from "@rallly/ui";
 import { Button } from "@rallly/ui/button";
 import { CheckIcon, HelpCircleIcon, MinusIcon } from "lucide-react";
 import React from "react";
+import { getAvailabilityGridLayout } from "@/features/poll/availability/components/availability-grid-layout";
 import { formatAvailabilityTimeRange } from "@/features/poll/availability/components/availability-time-label";
 import { Trans, useTranslation } from "@/i18n/client";
 import {
@@ -44,15 +45,10 @@ export function AvailabilityGrid({
   weekly?: boolean;
 }) {
   const { t } = useTranslation();
-  const columns = React.useMemo(() => {
-    const byDate = new Map<string, GridSlot[]>();
-    for (const slot of slots) {
-      const column = byDate.get(slot.date) ?? [];
-      column.push(slot);
-      byDate.set(slot.date, column);
-    }
-    return [...byDate.entries()];
-  }, [slots]);
+  const { columns, rows } = React.useMemo(
+    () => getAvailabilityGridLayout(slots, timeZone),
+    [slots, timeZone],
+  );
   const [touchPaint, setTouchPaint] = React.useState(false);
   const [focusKey, setFocusKey] = React.useState(slots[0]?.start);
   const [selectedSlot, setSelectedSlot] = React.useState<GridSlot>();
@@ -90,13 +86,24 @@ export function AvailabilityGrid({
     onChange(next);
   }
 
-  function focusCell(column: number, row: number) {
+  function focusCell(column: number, row: number, direction = 0) {
     if (!columns.length) return;
     const safeColumn = Math.max(0, Math.min(columns.length - 1, column));
-    const safeRow = Math.max(
-      0,
-      Math.min(columns[safeColumn][1].length - 1, row),
-    );
+    const daySlots = columns[safeColumn][1];
+    let safeRow = Math.max(0, Math.min(daySlots.length - 1, row));
+    if (direction) {
+      while (safeRow >= 0 && safeRow < daySlots.length && !daySlots[safeRow]) {
+        safeRow += direction;
+      }
+    } else {
+      const availableRows = daySlots.flatMap((slot, index) =>
+        slot ? [index] : [],
+      );
+      safeRow = availableRows.reduce((nearest, index) =>
+        Math.abs(index - row) < Math.abs(nearest - row) ? index : nearest,
+      );
+    }
+    if (!daySlots[safeRow]) return;
     gridRef.current
       ?.querySelector<HTMLButtonElement>(
         `[data-column="${safeColumn}"][data-row="${safeRow}"]`,
@@ -160,7 +167,7 @@ export function AvailabilityGrid({
       ) : null}
       <div
         ref={gridRef}
-        className="max-h-[34rem] min-w-0 max-w-full overflow-auto overscroll-contain rounded-xl border bg-card"
+        className="max-h-[34rem] min-w-0 max-w-full scroll-pt-16 scroll-pl-22 overflow-auto overscroll-contain rounded-xl border bg-card"
         style={{ touchAction: onChange && touchPaint ? "none" : "auto" }}
         onPointerMove={(event) => {
           if (!gesture.current || gesture.current.pointerId !== event.pointerId)
@@ -177,12 +184,16 @@ export function AvailabilityGrid({
         onLostPointerCapture={endGesture}
       >
         <div
-          className="grid min-w-full"
+          className="grid w-max min-w-full"
           style={{
-            gridTemplateColumns: `repeat(${columns.length}, minmax(7.5rem, 1fr))`,
+            gridTemplateColumns: `5.5rem repeat(${columns.length}, minmax(6.5rem, 1fr))`,
           }}
         >
-          <div className="sticky top-0 z-20 col-span-full grid grid-cols-subgrid border-b bg-card">
+          <div className="sticky top-0 z-30 col-span-full grid grid-cols-subgrid border-b bg-card">
+            <div
+              aria-hidden="true"
+              className="sticky left-0 z-40 border-r bg-card"
+            />
             {columns.map(([date]) => {
               const day = new Date(`${date}T12:00:00Z`);
               return (
@@ -211,9 +222,36 @@ export function AvailabilityGrid({
               );
             })}
           </div>
+          <div
+            aria-hidden="true"
+            className="sticky left-0 z-20 border-r bg-card"
+          >
+            {rows.map(({ key, slot }, row) => (
+              <div
+                key={key}
+                data-time-row={row}
+                className="flex h-11 items-center justify-end whitespace-nowrap border-b border-dashed px-3 text-muted-foreground text-xs tabular-nums last:border-b-0"
+              >
+                {formatDateTime(new Date(slot.start), {
+                  locale,
+                  timeZone,
+                  preset: "time",
+                })}
+              </div>
+            ))}
+          </div>
           {columns.map(([date, daySlots], column) => (
             <div key={date} className="min-w-0 border-r last:border-r-0">
               {daySlots.map((slot, row) => {
+                if (!slot) {
+                  return (
+                    <div
+                      key={rows[row].key}
+                      aria-hidden="true"
+                      className="h-11 border-b border-dashed bg-muted/20 last:border-b-0"
+                    />
+                  );
+                }
                 const vote = values?.[slot.start] ?? "no";
                 const count = counts?.[slot.start];
                 const VoteIcon =
@@ -255,7 +293,7 @@ export function AvailabilityGrid({
                     aria-pressed={onChange ? vote !== "no" : undefined}
                     title={description}
                     className={cn(
-                      "flex h-11 w-full select-none items-center justify-between gap-1 border-b border-dashed px-2 text-left text-xs tabular-nums outline-none transition-colors last:border-b-0 hover:brightness-95 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50 dark:hover:brightness-125",
+                      "flex h-11 w-full select-none flex-col items-center justify-center gap-0.5 border-b border-dashed px-2 text-center text-xs tabular-nums outline-none transition-colors last:border-b-0 hover:brightness-95 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50 dark:hover:brightness-125",
                       onChange ? voteStyles[vote] : "text-foreground",
                       "[--availability-heat:var(--color-green-500)] dark:[--availability-heat:var(--color-green-900)]",
                     )}
@@ -313,33 +351,26 @@ export function AvailabilityGrid({
                       const offset = offsets[event.key];
                       if (offset) {
                         event.preventDefault();
-                        focusCell(column + offset[0], row + offset[1]);
+                        focusCell(
+                          column + offset[0],
+                          row + offset[1],
+                          offset[1],
+                        );
                       }
                       if (event.key === "Home") {
                         event.preventDefault();
-                        focusCell(column, 0);
+                        focusCell(column, 0, 1);
                       }
                       if (event.key === "End") {
                         event.preventDefault();
-                        focusCell(column, daySlots.length - 1);
+                        focusCell(column, daySlots.length - 1, -1);
                       }
                     }}
                   >
-                    <span className="min-w-0">
-                      <span className="block whitespace-nowrap">
-                        {formatDateTime(new Date(slot.start), {
-                          locale,
-                          timeZone,
-                          preset: "time",
-                        })}
-                      </span>
-                      {hasDateShift ? (
-                        <span className="block text-[0.625rem]">
-                          {localDate}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span aria-hidden="true" className="shrink-0 text-right">
+                    <span
+                      aria-hidden="true"
+                      className="flex items-center gap-2"
+                    >
                       {onChange ? (
                         <VoteIcon className="size-3.5" />
                       ) : (
@@ -348,7 +379,7 @@ export function AvailabilityGrid({
                             {count?.yes ?? 0}/{participantCount}
                           </span>
                           {count?.maybe ? (
-                            <span className="flex items-center justify-end gap-0.5">
+                            <span className="flex items-center gap-0.5">
                               <HelpCircleIcon className="size-3" />
                               {count.maybe}
                             </span>
@@ -356,6 +387,9 @@ export function AvailabilityGrid({
                         </>
                       )}
                     </span>
+                    {hasDateShift ? (
+                      <span className="text-[0.625rem]">{localDate}</span>
+                    ) : null}
                   </button>
                 );
               })}

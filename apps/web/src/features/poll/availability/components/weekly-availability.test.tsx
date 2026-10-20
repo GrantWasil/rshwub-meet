@@ -231,9 +231,9 @@ describe("weekly availability", () => {
     expect(
       screen.queryByRole("link", { name: "Download calendar event" }),
     ).not.toBeInTheDocument();
-    expect(
-      container.querySelector('[data-column="0"][data-row="0"]'),
-    ).toHaveTextContent("5:00 PM");
+    expect(container.querySelector('[data-time-row="0"]')).toHaveTextContent(
+      "5:00 PM",
+    );
     expect(container.textContent).not.toMatch(/January|2026|Jan 5/);
   });
 });
