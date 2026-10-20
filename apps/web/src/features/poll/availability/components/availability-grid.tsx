@@ -167,7 +167,7 @@ export function AvailabilityGrid({
       ) : null}
       <div
         ref={gridRef}
-        className="max-h-[34rem] min-w-0 max-w-full scroll-pt-16 scroll-pl-22 overflow-auto overscroll-contain rounded-xl border bg-card"
+        className="max-h-[34rem] min-w-0 max-w-full scroll-pt-16 scroll-pl-22 overflow-auto overscroll-x-contain rounded-xl border bg-card"
         style={{ touchAction: onChange && touchPaint ? "none" : "auto" }}
         onPointerMove={(event) => {
           if (!gesture.current || gesture.current.pointerId !== event.pointerId)
@@ -184,7 +184,7 @@ export function AvailabilityGrid({
         onLostPointerCapture={endGesture}
       >
         <div
-          className="grid w-max min-w-full [--availability-row-height:2rem] [@media(any-pointer:coarse)]:[--availability-row-height:2.75rem]"
+          className="grid w-max min-w-full [--availability-row-height:2rem] [@media(any-pointer:coarse)]:[--availability-row-height:2.5rem]"
           style={{
             gridTemplateColumns: `5.5rem repeat(${columns.length}, minmax(6.5rem, 1fr))`,
           }}
