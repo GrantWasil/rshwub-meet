@@ -116,7 +116,7 @@ export function AvailabilityResponseForm({
           )}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 sm:pt-0">
         <form
           className="space-y-5"
           onSubmit={(event) => {

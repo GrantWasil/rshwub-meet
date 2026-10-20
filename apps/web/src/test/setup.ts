@@ -2,6 +2,24 @@ import "@testing-library/jest-dom/vitest";
 import "@/lib/dayjs";
 import { vi } from "vitest";
 
+// jsdom does not evaluate media queries. Individual tests can override matches.
+if (!window.matchMedia) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string): MediaQueryList => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
 // jsdom has no PointerEvent; Base UI references it in pointer handlers
 if (!window.PointerEvent) {
   class PointerEventPolyfill extends MouseEvent {

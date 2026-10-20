@@ -77,11 +77,11 @@ export function AvailabilityResults({
         <CardDescription>
           <Trans
             i18nKey="availabilityResultsExplanation"
-            defaults="Darker green means more people are free. Counts show yes responses out of everyone who responded; a question mark shows maybe responses. Empty cells have no availability marked. Select a time for details."
+            defaults="Darker green means more people are free. Select a time for counts."
           />
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 pt-0 sm:pt-0">
         <AvailabilityGrid
           slots={slots}
           counts={counts}
