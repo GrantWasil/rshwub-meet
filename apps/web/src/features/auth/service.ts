@@ -1,11 +1,9 @@
 import "server-only";
 import { passkey } from "@better-auth/passkey";
 import { absoluteUrl } from "@rallly/utils/absolute-url";
+import type { GenericEndpointContext } from "better-auth";
 import { APIError } from "better-auth";
-import {
-  createAuthMiddleware,
-  getAuthoritativeSessionFromCtx,
-} from "better-auth/api";
+import { getAuthoritativeSessionFromCtx } from "better-auth/api";
 import { env } from "@/env";
 import {
   getPasskeyAccount,
@@ -59,8 +57,11 @@ export const meetPasskeys = passkey({
   },
 });
 
-export const protectPasskeyRequest = createAuthMiddleware(async (ctx) => {
+// These are plain helpers called inside auth.ts's middleware. Nesting
+// createAuthMiddleware would wrap their result in { headers, response } again.
+export async function protectPasskeyRequest(ctx: GenericEndpointContext) {
   if (!ctx.path.startsWith("/passkey/")) return;
+  ctx.setHeader("Cache-Control", "no-store");
 
   // Respect instances that deliberately require SSO for every sign-in.
   if (env.EMAIL_LOGIN_ENABLED === "false") {
@@ -98,17 +99,20 @@ export const protectPasskeyRequest = createAuthMiddleware(async (ctx) => {
   if (typeof ctx.body?.name === "string") {
     ctx.body.name = ctx.body.name.trim();
   }
-});
+}
 
-export const enforcePasskeyAuthenticationOptions = createAuthMiddleware(
-  async (ctx) => {
-    // Better Auth 1.6 requests "preferred" for assertion ceremonies. Ask the
-    // authenticator for the same verification we enforce on the server.
-    if (ctx.path === "/passkey/generate-authenticate-options") {
-      const options = ctx.context.returned;
-      if (options && typeof options === "object" && "challenge" in options) {
-        return ctx.json({ ...options, userVerification: "required" });
-      }
+export async function enforcePasskeyAuthenticationOptions(
+  ctx: GenericEndpointContext & { context: { returned?: unknown } },
+) {
+  if (ctx.path.startsWith("/passkey/")) {
+    ctx.setHeader("Cache-Control", "no-store");
+  }
+  // Better Auth 1.6 requests "preferred" for assertion ceremonies. Ask the
+  // authenticator for the same verification we enforce on the server.
+  if (ctx.path === "/passkey/generate-authenticate-options") {
+    const options = ctx.context.returned;
+    if (options && typeof options === "object" && "challenge" in options) {
+      return ctx.json({ ...options, userVerification: "required" });
     }
-  },
-);
+  }
+}

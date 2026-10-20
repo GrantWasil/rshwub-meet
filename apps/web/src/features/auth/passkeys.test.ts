@@ -7,6 +7,7 @@ import {
 } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { memoryAdapter } from "better-auth/adapters/memory";
+import { createAuthMiddleware } from "better-auth/api";
 import { admin, anonymous, testUtils } from "better-auth/plugins";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -83,8 +84,14 @@ function createFixtureAuth() {
     database: memoryAdapter(fixture.rows),
     plugins: [admin(), anonymous(), meetPasskeys, testUtils()],
     hooks: {
-      before: protectPasskeyRequest,
-      after: enforcePasskeyAuthenticationOptions,
+      // Match auth.ts's composition, including the no-result fallthrough.
+      before: createAuthMiddleware(async (ctx) => {
+        await protectPasskeyRequest(ctx);
+      }),
+      after: createAuthMiddleware(async (ctx) => {
+        const options = await enforcePasskeyAuthenticationOptions(ctx);
+        if (options) return options;
+      }),
     },
     trustedOrigins: [origin],
     session: { cookieCache: { enabled: true, maxAge: 300 } },
@@ -263,6 +270,38 @@ beforeEach(() => {
 });
 
 describe("passkey HTTP authorization with Better Auth's real session store", () => {
+  it("preserves ordinary session and sign-out responses through composed hooks", async () => {
+    const auth = createFixtureAuth();
+    expect(await (await request(auth, "/get-session")).json()).toBeNull();
+    const account = await createUserSession(auth);
+    const session = await (await request(auth, "/get-session", account)).json();
+    expect(session.user.id).toBe(account.user.id);
+    expect(session).not.toHaveProperty("headers");
+    expect(session).not.toHaveProperty("response");
+    const signedOut = await request(auth, "/sign-out", {
+      cookie: account.cookie,
+      body: {},
+    });
+    expect(await signedOut.json()).toEqual({ success: true });
+  });
+
+  it("returns unwrapped, non-cacheable browser authentication options", async () => {
+    const auth = createFixtureAuth();
+    const response = await request(
+      auth,
+      "/passkey/generate-authenticate-options",
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const options = await response.json();
+    expect(options).toMatchObject({
+      rpId: "meet.rshwub.com",
+      userVerification: "required",
+      challenge: expect.any(String),
+    });
+    expect(options).not.toHaveProperty("response");
+    expect(options).not.toHaveProperty("headers");
+  });
+
   it("requires an account, with guest sign-in and stale sessions rejected", async () => {
     const auth = createFixtureAuth();
     await expectCode(
