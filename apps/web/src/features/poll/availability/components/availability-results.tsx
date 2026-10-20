@@ -77,7 +77,7 @@ export function AvailabilityResults({
         <CardDescription>
           <Trans
             i18nKey="availabilityResultsExplanation"
-            defaults="Darker green means more people are free; maybe responses add lighter shading. Each cell shows yes responses out of everyone who responded, with a question mark for maybe responses. Select a time for the full breakdown."
+            defaults="Darker green means more people are free. Counts show yes responses out of everyone who responded; a question mark shows maybe responses. Empty cells have no availability marked. Select a time for details."
           />
         </CardDescription>
       </CardHeader>

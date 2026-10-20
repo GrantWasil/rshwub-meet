@@ -375,9 +375,11 @@ export function AvailabilityGrid({
                         <VoteIcon className="size-3.5" />
                       ) : (
                         <>
-                          <span className="block font-medium">
-                            {count?.yes ?? 0}/{participantCount}
-                          </span>
+                          {count?.yes ? (
+                            <span className="block font-medium">
+                              {count.yes}/{participantCount}
+                            </span>
+                          ) : null}
                           {count?.maybe ? (
                             <span className="flex items-center gap-0.5">
                               <HelpCircleIcon className="size-3" />
