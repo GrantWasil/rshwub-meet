@@ -184,7 +184,7 @@ export function AvailabilityGrid({
         onLostPointerCapture={endGesture}
       >
         <div
-          className="grid w-max min-w-full"
+          className="grid w-max min-w-full [--availability-row-height:2rem] [@media(any-pointer:coarse)]:[--availability-row-height:2.75rem]"
           style={{
             gridTemplateColumns: `5.5rem repeat(${columns.length}, minmax(6.5rem, 1fr))`,
           }}
@@ -199,7 +199,7 @@ export function AvailabilityGrid({
               return (
                 <div
                   key={date}
-                  className="space-y-0.5 border-r px-2 py-3 text-center text-sm last:border-r-0"
+                  className="space-y-0.5 border-r px-2 py-2 text-center text-sm last:border-r-0"
                 >
                   {weekly ? (
                     <div className="font-medium">
@@ -230,7 +230,7 @@ export function AvailabilityGrid({
               <div
                 key={key}
                 data-time-row={row}
-                className="flex h-11 items-center justify-end whitespace-nowrap border-b border-dashed px-3 text-muted-foreground text-xs tabular-nums last:border-b-0"
+                className="flex h-(--availability-row-height) items-center justify-end whitespace-nowrap border-b border-dashed px-3 text-muted-foreground text-xs tabular-nums last:border-b-0"
               >
                 {formatDateTime(new Date(slot.start), {
                   locale,
@@ -248,7 +248,7 @@ export function AvailabilityGrid({
                     <div
                       key={rows[row].key}
                       aria-hidden="true"
-                      className="h-11 border-b border-dashed bg-muted/20 last:border-b-0"
+                      className="h-(--availability-row-height) border-b border-dashed bg-muted/20 last:border-b-0"
                     />
                   );
                 }
@@ -293,7 +293,7 @@ export function AvailabilityGrid({
                     aria-pressed={onChange ? vote !== "no" : undefined}
                     title={description}
                     className={cn(
-                      "flex h-11 w-full select-none flex-col items-center justify-center gap-0.5 border-b border-dashed px-2 text-center text-xs tabular-nums outline-none transition-colors last:border-b-0 hover:brightness-95 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50 dark:hover:brightness-125",
+                      "flex h-(--availability-row-height) w-full select-none flex-col items-center justify-center gap-0.5 border-b border-dashed px-2 text-center text-xs tabular-nums outline-none transition-colors last:border-b-0 hover:brightness-95 focus-visible:relative focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50 dark:hover:brightness-125",
                       onChange ? voteStyles[vote] : "text-foreground",
                       "[--availability-heat:var(--color-green-500)] dark:[--availability-heat:var(--color-green-900)]",
                     )}
@@ -390,7 +390,9 @@ export function AvailabilityGrid({
                       )}
                     </span>
                     {hasDateShift ? (
-                      <span className="text-[0.625rem]">{localDate}</span>
+                      <span className="text-[0.625rem] leading-3">
+                        {localDate}
+                      </span>
                     ) : null}
                   </button>
                 );
