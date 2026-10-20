@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@/test/test-utils";
+import { getAvailabilitySlots } from "../utils";
 import type { GridVote } from "./availability-grid";
 import { AvailabilityGrid } from "./availability-grid";
 
@@ -38,6 +39,52 @@ function EditableGrid() {
 afterEach(() => vi.restoreAllMocks());
 
 describe("availability grid interaction", () => {
+  it("shows a typical Monday–Sunday week without exposing internal dates", async () => {
+    const user = userEvent.setup();
+    const weeklySlots = getAvailabilitySlots({
+      mode: "weekly",
+      dates: [],
+      timeZone: "America/Denver",
+      startMinute: 17 * 60,
+      endMinute: 18 * 60,
+      slotMinutes: 30,
+      durationMinutes: 60,
+    });
+    const { container } = render(
+      <AvailabilityGrid
+        slots={weeklySlots}
+        timeZone="America/Denver"
+        locale="en-US"
+        weekly
+      />,
+    );
+
+    for (const day of [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ]) {
+      expect(screen.getByText(day, { exact: true })).toBeVisible();
+    }
+    const first = container.querySelector<HTMLButtonElement>(
+      '[data-column="0"][data-row="0"]',
+    );
+    expect(first).toHaveAccessibleName(/Monday, 5:00 PM – 5:30 PM/);
+    expect(first).toHaveTextContent("5:00 PM");
+    await user.tab();
+    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent(
+      "Monday, 5:00 PM – 5:30 PM",
+    );
+    expect(container.textContent).not.toMatch(/January|2026|Jan 5/);
+    for (const cell of container.querySelectorAll("[data-column]")) {
+      expect(cell.getAttribute("aria-label")).not.toMatch(/January|2026|Jan 5/);
+    }
+  });
+
   it("lets a keyboard user navigate and mark an individual time", async () => {
     const user = userEvent.setup();
     const { container } = render(<EditableGrid />);

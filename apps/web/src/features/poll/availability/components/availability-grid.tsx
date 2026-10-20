@@ -4,12 +4,12 @@ import { cn } from "@rallly/ui";
 import { Button } from "@rallly/ui/button";
 import { CheckIcon, HelpCircleIcon, MinusIcon } from "lucide-react";
 import React from "react";
+import { formatAvailabilityTimeRange } from "@/features/poll/availability/components/availability-time-label";
 import { Trans, useTranslation } from "@/i18n/client";
 import {
   formatDate,
   formatDateParts,
   formatDateTime,
-  formatDateTimeRange,
 } from "@/lib/datetime/format";
 
 export type GridSlot = { start: string; end: string; date: string };
@@ -31,6 +31,7 @@ export function AvailabilityGrid({
   locale,
   counts,
   participantCount = 0,
+  weekly = false,
 }: {
   slots: GridSlot[];
   values?: Record<string, GridVote>;
@@ -40,6 +41,7 @@ export function AvailabilityGrid({
   locale: string;
   counts?: Record<string, { yes: number; maybe: number }>;
   participantCount?: number;
+  weekly?: boolean;
 }) {
   const { t } = useTranslation();
   const columns = React.useMemo(() => {
@@ -188,12 +190,23 @@ export function AvailabilityGrid({
                   key={date}
                   className="space-y-0.5 border-r px-2 py-3 text-center text-sm last:border-r-0"
                 >
-                  <div className="text-muted-foreground text-xs">
-                    {formatDateParts(day, { locale, timeZone: "UTC" }).weekday}
-                  </div>
-                  <div className="font-medium">
-                    {formatDate(day, { locale, preset: "monthDay" })}
-                  </div>
+                  {weekly ? (
+                    <div className="font-medium">
+                      {formatDate(day, { locale, preset: "weekday" })}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-muted-foreground text-xs">
+                        {
+                          formatDateParts(day, { locale, timeZone: "UTC" })
+                            .weekday
+                        }
+                      </div>
+                      <div className="font-medium">
+                        {formatDate(day, { locale, preset: "monthDay" })}
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -215,20 +228,19 @@ export function AvailabilityGrid({
                   preset: "monthDay",
                 });
                 const hasDateShift =
+                  !weekly &&
                   localDate !==
-                  formatDate(new Date(`${date}T12:00:00Z`), {
-                    locale,
-                    preset: "monthDay",
-                  });
-                const range = formatDateTimeRange(
-                  new Date(slot.start),
-                  new Date(slot.end),
-                  {
-                    locale,
-                    timeZone,
-                    preset: "datetime",
-                  },
-                );
+                    formatDate(new Date(`${date}T12:00:00Z`), {
+                      locale,
+                      preset: "monthDay",
+                    });
+                const range = formatAvailabilityTimeRange({
+                  start: slot.start,
+                  end: slot.end,
+                  locale,
+                  timeZone,
+                  weekly,
+                });
                 const description = onChange
                   ? `${range}: ${t(vote === "yes" ? "yes" : vote === "maybe" ? "ifNeedBe" : "no")}`
                   : `${range}: ${count?.yes ?? 0}/${participantCount} ${t("yes")}, ${count?.maybe ?? 0} ${t("ifNeedBe")}`;
@@ -353,16 +365,13 @@ export function AvailabilityGrid({
       </div>
       <p className="min-h-10 text-muted-foreground text-xs" aria-live="polite">
         {activeSlot
-          ? formatDateTimeRange(
-              new Date(activeSlot.start),
-              new Date(activeSlot.end),
-              {
-                locale,
-                timeZone,
-                preset: "datetime",
-                showTimeZone: true,
-              },
-            )
+          ? formatAvailabilityTimeRange({
+              start: activeSlot.start,
+              end: activeSlot.end,
+              locale,
+              timeZone,
+              weekly,
+            })
           : timeZone}
         {activeSlot && !onChange ? (
           <span className="mt-1 block">

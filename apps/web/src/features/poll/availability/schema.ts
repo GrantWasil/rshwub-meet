@@ -14,7 +14,9 @@ const dateSchema = z
 
 export const availabilityConfigSchema = z
   .object({
-    dates: z.array(dateSchema).min(1).max(31),
+    // Older stored polls have no mode and retain their specific dates.
+    mode: z.enum(["weekly", "dates"]).default("dates"),
+    dates: z.array(dateSchema).max(31).default([]),
     timeZone: z
       .string()
       .min(1)
@@ -29,6 +31,19 @@ export const availabilityConfigSchema = z
     durationMinutes: z.number().int().min(15).max(1440).default(120),
   })
   .superRefine((config, ctx) => {
+    if (config.mode === "weekly" && config.dates.length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dates"],
+        message: "Weekly availability does not use calendar dates",
+      });
+    } else if (config.mode === "dates" && config.dates.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dates"],
+        message: "Choose at least one calendar date",
+      });
+    }
     if (new Set(config.dates).size !== config.dates.length) {
       ctx.addIssue({
         code: "custom",

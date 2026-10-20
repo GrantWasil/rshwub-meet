@@ -53,6 +53,7 @@ export function CreateAvailabilityPoll() {
       description: "",
       location: "",
       config: {
+        mode: "weekly",
         dates: [],
         timeZone: "America/Denver",
         startMinute: 17 * 60,
@@ -66,6 +67,7 @@ export function CreateAvailabilityPoll() {
     form.setValue("config.timeZone", user?.timeZone || getBrowserTimeZone());
   }, [form, user?.timeZone]);
   const dates = form.watch("config.dates");
+  const weekly = form.watch("config.mode") === "weekly";
 
   return (
     <div className="absolute inset-0 overflow-auto bg-gray-100 dark:bg-gray-900">
@@ -82,7 +84,13 @@ export function CreateAvailabilityPoll() {
           className="space-y-4"
           onSubmit={form.handleSubmit((values) => {
             setError(undefined);
-            const validated = createAvailabilityPollSchema.safeParse(values);
+            const validated = createAvailabilityPollSchema.safeParse({
+              ...values,
+              config: {
+                ...values.config,
+                dates: weekly ? [] : values.config.dates,
+              },
+            });
             if (!validated.success) {
               setError(validated.error.issues[0].message);
               return;
@@ -125,7 +133,7 @@ export function CreateAvailabilityPoll() {
               <CardDescription>
                 <Trans
                   i18nKey="availabilityCreateDescription"
-                  defaults="Choose possible days. Everyone paints when they are free, and you pick the best overlap."
+                  defaults="Share a typical week or choose specific dates. Everyone marks when they are free, and you find the best overlap."
                 />
               </CardDescription>
             </CardHeader>
@@ -171,130 +179,188 @@ export function CreateAvailabilityPoll() {
           <Card>
             <CardHeader>
               <CardTitle>
-                <Trans
-                  i18nKey="availabilityPossibleDates"
-                  defaults="Possible dates"
-                />
+                <Trans i18nKey="availabilitySchedule" defaults="When to meet" />
               </CardTitle>
               <CardDescription>
                 <Trans
-                  i18nKey="availabilityDateInstructions"
-                  defaults="Select up to 31 specific dates. Tap a selected date again to remove it."
+                  i18nKey="availabilityScheduleHelp"
+                  defaults="Start with a typical week to find a regular meeting time. Choose specific dates for a one-time event."
                 />
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-6 md:grid-cols-2">
-              <Controller
-                name="config.dates"
-                control={form.control}
-                render={({ field }) => (
-                  <Calendar
-                    mode="multiple"
-                    max={31}
-                    selected={field.value.map(
-                      (date) => new Date(`${date}T12:00:00`),
-                    )}
-                    onSelect={(selected) =>
-                      field.onChange((selected ?? []).map(dateKey).sort())
-                    }
-                    className="mx-auto [--cell-size:--spacing(10)]"
-                  />
-                )}
-              />
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="availability-zone">
-                    <Trans
-                      i18nKey="availabilityEventTimeZone"
-                      defaults="Event time zone"
-                    />
-                  </Label>
-                  <Controller
-                    name="config.timeZone"
-                    control={form.control}
-                    render={({ field }) => (
-                      <TimeZoneSelect
-                        id="availability-zone"
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        className="min-w-0"
-                      />
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {(["startMinute", "endMinute"] as const).map((name) => (
-                    <div key={name} className="space-y-2">
-                      <Label htmlFor={`availability-${name}`}>
-                        {name === "startMinute" ? (
-                          <Trans
-                            i18nKey="availabilityDailyStart"
-                            defaults="From"
-                          />
-                        ) : (
-                          <Trans
-                            i18nKey="availabilityDailyEnd"
-                            defaults="Until"
-                          />
-                        )}
-                      </Label>
-                      <Controller
-                        name={`config.${name}`}
-                        control={form.control}
-                        render={({ field }) => (
-                          <Input
-                            id={`availability-${name}`}
-                            type="time"
-                            required
-                            step={1800}
-                            value={clockValue(field.value)}
-                            onChange={(event) => {
-                              const [hours, minutes] = event.target.value
-                                .split(":")
-                                .map(Number);
-                              if (Number.isFinite(hours + minutes))
-                                field.onChange(hours * 60 + minutes);
-                            }}
-                          />
-                        )}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="availability-duration">
-                    <Trans
-                      i18nKey="availabilityEventDuration"
-                      defaults="Event duration (minutes)"
-                    />
-                  </Label>
-                  <Input
-                    id="availability-duration"
-                    type="number"
-                    min={30}
-                    max={1440}
-                    step={30}
-                    required
-                    {...form.register("config.durationMinutes", {
-                      valueAsNumber: true,
-                      min: 30,
-                      max: 1440,
-                    })}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    <Trans
-                      i18nKey="availabilityDurationHelp"
-                      defaults="Results find a continuous block this long. The grid uses 30-minute intervals."
-                    />
-                  </p>
-                </div>
-                <p className="text-sm">
+            <CardContent className="space-y-6">
+              <fieldset className="grid gap-2 sm:grid-cols-2">
+                <legend className="sr-only">
                   <Trans
-                    i18nKey="availabilityDatesSelected"
-                    defaults="{count, plural, =0 {No dates selected} one {1 date selected} other {# dates selected}}"
-                    values={{ count: dates.length }}
+                    i18nKey="availabilityScheduleType"
+                    defaults="Schedule type"
                   />
-                </p>
+                </legend>
+                {(["weekly", "dates"] as const).map((mode) => (
+                  <label
+                    key={mode}
+                    className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                  >
+                    <input
+                      type="radio"
+                      value={mode}
+                      className="size-4 accent-primary"
+                      {...form.register("config.mode")}
+                    />
+                    {mode === "weekly" ? (
+                      <Trans
+                        i18nKey="availabilityTypicalWeek"
+                        defaults="Typical week"
+                      />
+                    ) : (
+                      <Trans
+                        i18nKey="availabilitySpecificDates"
+                        defaults="Specific dates"
+                      />
+                    )}
+                  </label>
+                ))}
+              </fieldset>
+              <div className="grid gap-6 md:grid-cols-2">
+                {weekly ? (
+                  <div className="space-y-2">
+                    <h3 className="font-medium text-sm">
+                      <Trans
+                        i18nKey="availabilityMondaySunday"
+                        defaults="Monday–Sunday"
+                      />
+                    </h3>
+                    <p className="max-w-sm text-muted-foreground text-sm">
+                      <Trans
+                        i18nKey="availabilityTypicalWeekHelp"
+                        defaults="Everyone shares their usual availability across all seven days, using the event time zone. No calendar dates are needed."
+                      />
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-muted-foreground text-sm">
+                      <Trans
+                        i18nKey="availabilityDateInstructions"
+                        defaults="Select up to 31 specific dates. Tap a selected date again to remove it."
+                      />
+                    </p>
+                    <Controller
+                      name="config.dates"
+                      control={form.control}
+                      render={({ field }) => (
+                        <Calendar
+                          mode="multiple"
+                          max={31}
+                          selected={field.value.map(
+                            (date) => new Date(`${date}T12:00:00`),
+                          )}
+                          onSelect={(selected) =>
+                            field.onChange((selected ?? []).map(dateKey).sort())
+                          }
+                          className="mx-auto [--cell-size:--spacing(10)]"
+                        />
+                      )}
+                    />
+                  </div>
+                )}
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="availability-zone">
+                      <Trans
+                        i18nKey="availabilityEventTimeZone"
+                        defaults="Event time zone"
+                      />
+                    </Label>
+                    <Controller
+                      name="config.timeZone"
+                      control={form.control}
+                      render={({ field }) => (
+                        <TimeZoneSelect
+                          id="availability-zone"
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          className="min-w-0"
+                        />
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["startMinute", "endMinute"] as const).map((name) => (
+                      <div key={name} className="space-y-2">
+                        <Label htmlFor={`availability-${name}`}>
+                          {name === "startMinute" ? (
+                            <Trans
+                              i18nKey="availabilityDailyStart"
+                              defaults="From"
+                            />
+                          ) : (
+                            <Trans
+                              i18nKey="availabilityDailyEnd"
+                              defaults="Until"
+                            />
+                          )}
+                        </Label>
+                        <Controller
+                          name={`config.${name}`}
+                          control={form.control}
+                          render={({ field }) => (
+                            <Input
+                              id={`availability-${name}`}
+                              type="time"
+                              required
+                              step={1800}
+                              value={clockValue(field.value)}
+                              onChange={(event) => {
+                                const [hours, minutes] = event.target.value
+                                  .split(":")
+                                  .map(Number);
+                                if (Number.isFinite(hours + minutes))
+                                  field.onChange(hours * 60 + minutes);
+                              }}
+                            />
+                          )}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="availability-duration">
+                      <Trans
+                        i18nKey="availabilityEventDuration"
+                        defaults="Event duration (minutes)"
+                      />
+                    </Label>
+                    <Input
+                      id="availability-duration"
+                      type="number"
+                      min={30}
+                      max={1440}
+                      step={30}
+                      required
+                      {...form.register("config.durationMinutes", {
+                        valueAsNumber: true,
+                        min: 30,
+                        max: 1440,
+                      })}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      <Trans
+                        i18nKey="availabilityDurationHelp"
+                        defaults="Results find a continuous block this long. The grid uses 30-minute intervals."
+                      />
+                    </p>
+                  </div>
+                  {!weekly ? (
+                    <p className="text-sm">
+                      <Trans
+                        i18nKey="availabilityDatesSelected"
+                        defaults="{count, plural, =0 {No dates selected} one {1 date selected} other {# dates selected}}"
+                        values={{ count: dates.length }}
+                      />
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -318,7 +384,7 @@ export function CreateAvailabilityPoll() {
               variant="primary"
               size="lg"
               loading={pending}
-              disabled={pending || !dates.length}
+              disabled={pending || (!weekly && !dates.length)}
             >
               <Trans i18nKey="createPoll" defaults="Create poll" />
             </Button>

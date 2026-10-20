@@ -21,11 +21,13 @@ import { useRouter } from "next/navigation";
 import React from "react";
 import { finalizeAvailabilityPollAction } from "@/features/poll/availability/actions";
 import { AvailabilityGrid } from "@/features/poll/availability/components/availability-grid";
+import { formatAvailabilityTimeRange } from "@/features/poll/availability/components/availability-time-label";
 import { getAvailabilityResults } from "@/features/poll/availability/results/utils";
 import type {
   AvailabilityPoll,
   AvailabilitySlot,
 } from "@/features/poll/availability/types";
+import { isWeeklyAvailability } from "@/features/poll/availability/utils";
 import { Trans, useTranslation } from "@/i18n/client";
 import { formatDateTimeRange } from "@/lib/datetime/format";
 
@@ -43,6 +45,7 @@ export function AvailabilityResults({
   const { t } = useTranslation();
   const router = useRouter();
   const dialog = useDialog();
+  const weekly = isWeeklyAvailability(poll.config);
   const [selected, setSelected] = React.useState<{
     start: string;
     end: string;
@@ -85,40 +88,59 @@ export function AvailabilityResults({
           participantCount={poll.participants.length}
           timeZone={timeZone}
           locale={locale}
+          weekly={weekly}
         />
         <div className="space-y-3">
           <h3 className="font-semibold">
-            <Trans
-              i18nKey="availabilityBestWindows"
-              defaults="Best continuous times"
-            />
+            {weekly ? (
+              <Trans
+                i18nKey="availabilityBestWeeklyWindows"
+                defaults="Best weekly times"
+              />
+            ) : (
+              <Trans
+                i18nKey="availabilityBestWindows"
+                defaults="Best continuous times"
+              />
+            )}
           </h3>
           <p className="text-muted-foreground text-sm">
-            <Trans
-              i18nKey="availabilityBestWindowsDescription"
-              defaults="Each person counted can attend the entire {minutes}-minute event. Maybe means at least part of their response is tentative."
-              values={{ minutes: poll.config.durationMinutes }}
-            />
+            {weekly ? (
+              <Trans
+                i18nKey="availabilityBestWeeklyWindowsDescription"
+                defaults="The top recurring {minutes}-minute windows, ranked by yes responses, then maybe responses. Each person counted is available for the whole event."
+                values={{ minutes: poll.config.durationMinutes }}
+              />
+            ) : (
+              <Trans
+                i18nKey="availabilityBestWindowsDescription"
+                defaults="Each person counted can attend the entire {minutes}-minute event. Maybe means at least part of their response is tentative."
+                values={{ minutes: poll.config.durationMinutes }}
+              />
+            )}
           </p>
           {best.length ? (
-            <ul className="divide-y rounded-xl border">
-              {best.map((window) => (
+            <ol className="divide-y rounded-xl border">
+              {best.map((window, index) => (
                 <li
                   key={window.start}
                   className="flex flex-wrap items-center justify-between gap-3 p-4"
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="font-medium text-sm">
-                      {formatDateTimeRange(
-                        new Date(window.start),
-                        new Date(window.end),
-                        {
-                          locale,
-                          timeZone,
-                          preset: "datetime",
-                          showTimeZone: true,
-                        },
-                      )}
+                      <span
+                        className="mr-2 text-muted-foreground tabular-nums"
+                        aria-hidden="true"
+                      >
+                        {index + 1}.
+                      </span>
+                      {formatAvailabilityTimeRange({
+                        start: window.start,
+                        end: window.end,
+                        locale,
+                        timeZone,
+                        weekly,
+                      })}
                     </p>
                     <p className="text-muted-foreground text-sm">
                       <Trans
@@ -141,7 +163,7 @@ export function AvailabilityResults({
                       ].join(", ")}
                     </p>
                   </div>
-                  {poll.canManage && poll.status === "open" ? (
+                  {!weekly && poll.canManage && poll.status === "open" ? (
                     <Button
                       type="button"
                       size="sm"
@@ -159,7 +181,7 @@ export function AvailabilityResults({
                   ) : null}
                 </li>
               ))}
-            </ul>
+            </ol>
           ) : (
             <p className="rounded-xl border border-dashed p-5 text-muted-foreground text-sm">
               <Trans
@@ -183,92 +205,94 @@ export function AvailabilityResults({
           ))}
         </div>
       </CardContent>
-      <Dialog {...dialog.dialogProps}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              <Trans
-                i18nKey="availabilityFinalizeTitle"
-                defaults="Finalize this time?"
-              />
-            </DialogTitle>
-            <DialogDescription>
-              <Trans
-                i18nKey="availabilityFinalizeDescription"
-                defaults="Responses will close and everyone can download the calendar event."
-              />
-            </DialogDescription>
-          </DialogHeader>
-          {selected ? (
-            <p className="font-medium">
-              {formatDateTimeRange(
-                new Date(selected.start),
-                new Date(selected.end),
-                {
-                  locale,
-                  timeZone,
-                  preset: "datetime",
-                  showTimeZone: true,
-                },
-              )}
-            </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="text-destructive text-sm">
-              {error}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              disabled={pending}
-              onClick={() => dialog.dismiss()}
-            >
-              <Trans i18nKey="cancel" defaults="Cancel" />
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={pending || !selected}
-              loading={pending}
-              onClick={() => {
-                if (!selected) return;
-                startTransition(async () => {
-                  try {
-                    const result = await finalizeAvailabilityPollAction({
-                      pollId: poll.id,
-                      ...selected,
-                    });
-                    if (!result?.data) {
+      {!weekly ? (
+        <Dialog {...dialog.dialogProps}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                <Trans
+                  i18nKey="availabilityFinalizeTitle"
+                  defaults="Finalize this time?"
+                />
+              </DialogTitle>
+              <DialogDescription>
+                <Trans
+                  i18nKey="availabilityFinalizeDescription"
+                  defaults="Responses will close and everyone can download the calendar event."
+                />
+              </DialogDescription>
+            </DialogHeader>
+            {selected ? (
+              <p className="font-medium">
+                {formatDateTimeRange(
+                  new Date(selected.start),
+                  new Date(selected.end),
+                  {
+                    locale,
+                    timeZone,
+                    preset: "datetime",
+                    showTimeZone: true,
+                  },
+                )}
+              </p>
+            ) : null}
+            {error ? (
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button
+                type="button"
+                disabled={pending}
+                onClick={() => dialog.dismiss()}
+              >
+                <Trans i18nKey="cancel" defaults="Cancel" />
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={pending || !selected}
+                loading={pending}
+                onClick={() => {
+                  if (!selected) return;
+                  startTransition(async () => {
+                    try {
+                      const result = await finalizeAvailabilityPollAction({
+                        pollId: poll.id,
+                        ...selected,
+                      });
+                      if (!result?.data) {
+                        setError(
+                          t("availabilityFinalizeFailed", {
+                            defaultValue:
+                              "Could not finalize this time. Refresh the poll and try again.",
+                          }),
+                        );
+                        return;
+                      }
+                      dialog.dismiss();
+                      router.refresh();
+                    } catch {
                       setError(
-                        t("availabilityFinalizeFailed", {
+                        t("availabilityNetworkError", {
                           defaultValue:
-                            "Could not finalize this time. Refresh the poll and try again.",
+                            "The connection was interrupted. Your changes are still here; please try again.",
                         }),
                       );
-                      return;
                     }
-                    dialog.dismiss();
-                    router.refresh();
-                  } catch {
-                    setError(
-                      t("availabilityNetworkError", {
-                        defaultValue:
-                          "The connection was interrupted. Your changes are still here; please try again.",
-                      }),
-                    );
-                  }
-                });
-              }}
-            >
-              <Trans
-                i18nKey="availabilityFinalizeTime"
-                defaults="Finalize time"
-              />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  });
+                }}
+              >
+                <Trans
+                  i18nKey="availabilityFinalizeTime"
+                  defaults="Finalize time"
+                />
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </Card>
   );
 }

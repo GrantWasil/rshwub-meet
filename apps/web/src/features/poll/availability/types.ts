@@ -1,4 +1,8 @@
+export type AvailabilityMode = "weekly" | "dates";
+
 export type AvailabilityConfig = {
+  /** Missing on older persisted polls, which use specific dates. */
+  mode?: AvailabilityMode;
   dates: string[];
   timeZone: string;
   startMinute: number;

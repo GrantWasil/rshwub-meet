@@ -24,12 +24,14 @@ import {
 } from "@/features/poll/availability/manage/actions";
 import { editAvailabilityPollSchema } from "@/features/poll/availability/manage/schema";
 import type { AvailabilityPoll } from "@/features/poll/availability/types";
+import { isWeeklyAvailability } from "@/features/poll/availability/utils";
 import { Trans, useTranslation } from "@/i18n/client";
 
 export function AvailabilityManage({ poll }: { poll: AvailabilityPoll }) {
   const { t } = useTranslation();
   const router = useRouter();
   const dialog = useDialog();
+  const weekly = isWeeklyAvailability(poll.config);
   const [operation, setOperation] = React.useState<
     "edit" | "close" | "reopen" | "delete"
   >("edit");
@@ -131,19 +133,26 @@ export function AvailabilityManage({ poll }: { poll: AvailabilityPoll }) {
               {operation === "edit" ? (
                 <Trans
                   i18nKey="availabilityEditDescription"
-                  defaults="Update the event details. Existing responses and dates will stay in place."
+                  defaults="Update the event details. Existing responses and the schedule will stay in place."
                 />
               ) : operation === "delete" ? (
-                <Trans
-                  i18nKey="availabilityDeleteDescription"
-                  defaults="The invite and management links will stop working. This cannot be undone from this page. Calendar events people already downloaded will stay in their calendars."
-                />
+                weekly ? (
+                  <Trans
+                    i18nKey="availabilityWeeklyDeleteDescription"
+                    defaults="The invite and management links will stop working. This cannot be undone from this page."
+                  />
+                ) : (
+                  <Trans
+                    i18nKey="availabilityDeleteDescription"
+                    defaults="The invite and management links will stop working. This cannot be undone from this page. Calendar events people already downloaded will stay in their calendars."
+                  />
+                )
               ) : operation === "close" ? (
                 <Trans
                   i18nKey="availabilityCloseDescription"
                   defaults="Pause new responses and comments. Existing responses stay visible, and you can reopen the poll at any time."
                 />
-              ) : poll.finalized ? (
+              ) : !weekly && poll.finalized ? (
                 <Trans
                   i18nKey="availabilityReopenFinalizedDescription"
                   defaults="Clear the chosen time and reopen responses. Everyone's availability will be kept. Ask guests to remove the old event from their calendars; previously downloaded events will not update automatically."
@@ -224,7 +233,7 @@ export function AvailabilityManage({ poll }: { poll: AvailabilityPoll }) {
                   {...passwordManagerIgnoreProps}
                 />
               </div>
-              {poll.finalized ? (
+              {!weekly && poll.finalized ? (
                 <p className="text-muted-foreground text-sm">
                   <Trans
                     i18nKey="availabilityEditedCalendarWarning"

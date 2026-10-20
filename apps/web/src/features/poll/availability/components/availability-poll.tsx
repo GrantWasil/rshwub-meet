@@ -21,7 +21,10 @@ import { AvailabilityManage } from "@/features/poll/availability/components/avai
 import { AvailabilityResponseForm } from "@/features/poll/availability/components/availability-response-form";
 import { AvailabilityResults } from "@/features/poll/availability/components/availability-results";
 import type { AvailabilityPoll as AvailabilityPollData } from "@/features/poll/availability/types";
-import { getAvailabilitySlots } from "@/features/poll/availability/utils";
+import {
+  getAvailabilitySlots,
+  isWeeklyAvailability,
+} from "@/features/poll/availability/utils";
 import { PollManagementLink } from "@/features/poll/management/components/poll-management-link";
 import { UserDropdown } from "@/features/user/components/user-dropdown";
 import { Trans } from "@/i18n/client";
@@ -38,20 +41,22 @@ export function AvailabilityPoll({
 }) {
   const { locale } = useLocale();
   const router = useRouter();
+  const weekly = isWeeklyAvailability(poll.config);
   const slots = React.useMemo(
     () => getAvailabilitySlots(poll.config),
     [poll.config],
   );
   const [timeZone, setTimeZone] = React.useState(poll.config.timeZone);
+  const displayTimeZone = weekly ? poll.config.timeZone : timeZone;
   const [publicLink, setPublicLink] = React.useState(
     `/availability/${poll.id}`,
   );
   const [copied, setCopied] = React.useState(false);
   const [refreshing, startTransition] = React.useTransition();
   React.useEffect(() => {
-    setTimeZone(getBrowserTimeZone());
+    if (!weekly) setTimeZone(getBrowserTimeZone());
     setPublicLink(`${window.location.origin}/availability/${poll.id}`);
-  }, [poll.id]);
+  }, [poll.id, weekly]);
   return (
     <div className="absolute inset-0 overflow-auto bg-gray-100 dark:bg-gray-900">
       <header className="sticky top-0 z-20 flex items-center justify-between gap-3 bg-gray-100/90 p-3 backdrop-blur-md dark:bg-gray-900/90">
@@ -67,10 +72,17 @@ export function AvailabilityPoll({
       >
         <div className="space-y-3 py-3">
           <p className="font-medium text-muted-foreground text-sm">
-            <Trans
-              i18nKey="schedulingModeAvailability"
-              defaults="Availability grid"
-            />
+            {weekly ? (
+              <Trans
+                i18nKey="availabilityWeeklyPoll"
+                defaults="Weekly availability"
+              />
+            ) : (
+              <Trans
+                i18nKey="schedulingModeAvailability"
+                defaults="Availability grid"
+              />
+            )}
           </p>
           <h1 className="break-words font-bold text-3xl tracking-tight">
             {poll.title}
@@ -136,7 +148,7 @@ export function AvailabilityPoll({
           </CardContent>
         </Card>
         {poll.canManage ? <AvailabilityManage poll={poll} /> : null}
-        {poll.finalized ? (
+        {!weekly && poll.finalized ? (
           <Card className="border-green-500/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -180,19 +192,37 @@ export function AvailabilityPoll({
           </p>
         ) : null}
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="space-y-2">
-            <Label htmlFor="availability-display-zone">
-              <Trans
-                i18nKey="availabilityDisplayZone"
-                defaults="Show times in"
+          {weekly ? (
+            <div className="space-y-1">
+              <p className="font-medium text-sm">
+                <Trans
+                  i18nKey="availabilitySharedTimeZone"
+                  defaults="All times in {timeZone}"
+                  values={{ timeZone: poll.config.timeZone }}
+                />
+              </p>
+              <p className="text-muted-foreground text-sm">
+                <Trans
+                  i18nKey="availabilityWeeklyTimeZoneHelp"
+                  defaults="Use this time zone for your typical week. Everyone answers on the same clock."
+                />
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="availability-display-zone">
+                <Trans
+                  i18nKey="availabilityDisplayZone"
+                  defaults="Show times in"
+                />
+              </Label>
+              <TimeZoneSelect
+                id="availability-display-zone"
+                value={timeZone}
+                onValueChange={setTimeZone}
               />
-            </Label>
-            <TimeZoneSelect
-              id="availability-display-zone"
-              value={timeZone}
-              onValueChange={setTimeZone}
-            />
-          </div>
+            </div>
+          )}
           <Button
             type="button"
             loading={refreshing}
@@ -206,27 +236,29 @@ export function AvailabilityPoll({
             />
           </Button>
         </div>
-        <p className="text-muted-foreground text-sm">
-          <Trans
-            i18nKey="availabilityColumnTimeZone"
-            defaults="Columns follow event dates in {timeZone}. Times within each column convert to your selected time zone; focus a cell to see its full date and time."
-            values={{ timeZone: poll.config.timeZone }}
-          />
-        </p>
+        {!weekly ? (
+          <p className="text-muted-foreground text-sm">
+            <Trans
+              i18nKey="availabilityColumnTimeZone"
+              defaults="Columns follow event dates in {timeZone}. Times within each column convert to your selected time zone; focus a cell to see its full date and time."
+              values={{ timeZone: poll.config.timeZone }}
+            />
+          </p>
+        ) : null}
         {poll.status === "open" ? (
           <AvailabilityResponseForm
             key={poll.currentParticipant?.id ?? poll.id}
             poll={poll}
             slots={slots}
             responseToken={responseToken}
-            timeZone={timeZone}
+            timeZone={displayTimeZone}
             locale={locale}
           />
         ) : null}
         <AvailabilityResults
           poll={poll}
           slots={slots}
-          timeZone={timeZone}
+          timeZone={displayTimeZone}
           locale={locale}
         />
         <AvailabilityComments

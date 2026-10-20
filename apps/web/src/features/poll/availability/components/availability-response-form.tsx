@@ -22,6 +22,7 @@ import type {
   AvailabilityPoll,
   AvailabilitySlot,
 } from "@/features/poll/availability/types";
+import { isWeeklyAvailability } from "@/features/poll/availability/utils";
 import { useUser } from "@/features/user/client";
 import { Trans, useTranslation } from "@/i18n/client";
 
@@ -41,6 +42,7 @@ export function AvailabilityResponseForm({
   const { t } = useTranslation();
   const { user, createGuestIfNeeded } = useUser();
   const router = useRouter();
+  const weekly = isWeeklyAvailability(poll.config);
   const [name, setName] = React.useState(
     poll.currentParticipant?.name ?? (user && !user.isGuest ? user.name : ""),
   );
@@ -101,10 +103,17 @@ export function AvailabilityResponseForm({
           />
         </CardTitle>
         <CardDescription>
-          <Trans
-            i18nKey="availabilityResponseInstructions"
-            defaults="Mark yes, maybe, or no. Unmarked times count as no. Save when you are done."
-          />
+          {weekly ? (
+            <Trans
+              i18nKey="availabilityWeeklyResponseInstructions"
+              defaults="Mark when you are usually free each week. Unmarked times count as no. Save when you are done."
+            />
+          ) : (
+            <Trans
+              i18nKey="availabilityResponseInstructions"
+              defaults="Mark yes, maybe, or no. Unmarked times count as no. Save when you are done."
+            />
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -219,6 +228,7 @@ export function AvailabilityResponseForm({
               onChange={updateValues}
               timeZone={timeZone}
               locale={locale}
+              weekly={weekly}
             />
             <AvailabilityRangeInput
               slots={slots}
@@ -233,6 +243,7 @@ export function AvailabilityResponseForm({
               }
               timeZone={timeZone}
               locale={locale}
+              weekly={weekly}
             />
           </fieldset>
           {error ? (

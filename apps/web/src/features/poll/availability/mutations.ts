@@ -14,7 +14,11 @@ import type {
 } from "./schema";
 import { availabilityConfigSchema } from "./schema";
 import type { AvailabilityInterval } from "./types";
-import { getAvailabilitySlots, normalizeAvailabilityIntervals } from "./utils";
+import {
+  getAvailabilitySlots,
+  isWeeklyAvailability,
+  normalizeAvailabilityIntervals,
+} from "./utils";
 
 export async function createAvailabilityPoll({
   userId,
@@ -176,6 +180,11 @@ export async function finalizeAvailabilityPoll({
       throw new AppError({ code: "FORBIDDEN", message: "This poll is closed" });
     const config = availabilityConfigSchema.parse(poll.availabilityConfig);
     const duration = (Date.parse(input.end) - Date.parse(input.start)) / 60_000;
+    if (isWeeklyAvailability(config))
+      throw new AppError({
+        code: "FORBIDDEN",
+        message: "Weekly availability does not select a calendar event date",
+      });
     try {
       normalizeAvailabilityIntervals(config, [
         { start: input.start, end: input.end, type: "yes" },

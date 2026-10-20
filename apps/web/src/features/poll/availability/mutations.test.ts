@@ -36,6 +36,7 @@ import {
   finalizeAvailabilityPoll,
   saveAvailabilityResponse,
 } from "./mutations";
+import { getAvailabilitySlots } from "./utils";
 
 const config = {
   dates: ["2026-10-20"],
@@ -131,6 +132,66 @@ describe("availability lifecycle transactions", () => {
       saveAvailabilityResponse({ userId: "guest", input }),
     ).rejects.toMatchObject({ code: "POLL_FULL" });
     expect(mocks.participantCreate).not.toHaveBeenCalled();
+  });
+
+  it("saves recurring weekly answers against the stable shared-zone grid", async () => {
+    const weeklyConfig = {
+      ...config,
+      mode: "weekly" as const,
+      dates: [],
+      slotMinutes: 30 as const,
+    };
+    const slots = getAvailabilitySlots(weeklyConfig);
+    mocks.poll.mockResolvedValue({
+      status: "open",
+      deadline: null,
+      availabilityConfig: weeklyConfig,
+    });
+
+    await saveAvailabilityResponse({
+      userId: "guest",
+      input: {
+        ...input,
+        intervals: [
+          { ...slots[0], type: "yes" },
+          { ...slots[1], type: "yes" },
+        ],
+      },
+    });
+
+    expect(mocks.participantCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        timeZone: "America/Denver",
+        availability: [
+          { start: slots[0].start, end: slots[1].end, type: "yes" },
+        ],
+      }),
+      select: { id: true, token: true },
+    });
+    expect(mocks.optionCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects finalizing internal weekly slots as a dated calendar event", async () => {
+    const weeklyConfig = {
+      ...config,
+      mode: "weekly" as const,
+      dates: [],
+      slotMinutes: 30 as const,
+    };
+    const slots = getAvailabilitySlots(weeklyConfig);
+    mocks.poll.mockResolvedValue({
+      status: "open",
+      availabilityConfig: weeklyConfig,
+    });
+
+    await expect(
+      finalizeAvailabilityPoll({
+        userId: "owner",
+        input: { pollId: "poll", start: slots[0].start, end: slots[3].end },
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(mocks.optionCreate).not.toHaveBeenCalled();
+    expect(mocks.pollUpdate).not.toHaveBeenCalled();
   });
 
   it("finalizes with exactly one option and the selected duration", async () => {

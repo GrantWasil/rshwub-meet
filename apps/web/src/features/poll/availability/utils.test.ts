@@ -4,6 +4,7 @@ import type { AvailabilityConfig } from "./types";
 import {
   canEditAvailabilityResponse,
   getAvailabilitySlots,
+  isWeeklyAvailability,
   normalizeAvailabilityIntervals,
 } from "./utils";
 
@@ -168,6 +169,96 @@ describe("availability grid", () => {
           },
         ],
       ),
+    ).toThrow("time grid");
+  });
+});
+
+describe("recurring weekly availability", () => {
+  const weeklyConfig: AvailabilityConfig = {
+    ...config,
+    mode: "weekly",
+    dates: [],
+    slotMinutes: 30,
+  };
+
+  it("keeps older stored polls on their original calendar dates", () => {
+    const parsed = availabilityConfigSchema.parse(config);
+
+    expect(parsed.mode).toBe("dates");
+    expect(parsed.dates).toEqual(config.dates);
+    expect(isWeeklyAvailability(config)).toBe(false);
+    expect(getAvailabilitySlots(parsed)).toEqual(getAvailabilitySlots(config));
+  });
+
+  it("stores a weekly mode without exposing anchor dates in its configuration", () => {
+    const parsed = availabilityConfigSchema.parse(weeklyConfig);
+
+    expect(parsed.mode).toBe("weekly");
+    expect(parsed.dates).toEqual([]);
+    expect(isWeeklyAvailability(parsed)).toBe(true);
+    expect(
+      availabilityConfigSchema.safeParse({
+        ...weeklyConfig,
+        dates: config.dates,
+      }).success,
+    ).toBe(false);
+    expect(
+      availabilityConfigSchema.safeParse({
+        ...config,
+        mode: "dates",
+        dates: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    ["America/Denver", "2026-01-06T01:00:00.000Z"],
+    ["Asia/Kathmandu", "2026-01-05T12:15:00.000Z"],
+  ])("uses seven stable Monday–Sunday columns in the shared %s time zone", (timeZone, firstStart) => {
+    const slots = getAvailabilitySlots({ ...weeklyConfig, timeZone });
+
+    expect(slots).toHaveLength(56);
+    expect([...new Set(slots.map((slot) => slot.date))]).toEqual([
+      "2026-01-05",
+      "2026-01-06",
+      "2026-01-07",
+      "2026-01-08",
+      "2026-01-09",
+      "2026-01-10",
+      "2026-01-11",
+    ]);
+    expect(slots[0].start).toBe(firstStart);
+    expect(slots.filter((slot) => slot.minute === 1080)).toHaveLength(7);
+    expect(
+      slots.every(
+        (slot) => Date.parse(slot.end) - Date.parse(slot.start) === 30 * 60_000,
+      ),
+    ).toBe(true);
+  });
+
+  it("round-trips weekly answers and rejects dates outside the internal week", () => {
+    const slots = getAvailabilitySlots(weeklyConfig);
+    const intervals = normalizeAvailabilityIntervals(weeklyConfig, [
+      { ...slots[0], type: "yes" },
+      { ...slots[1], type: "yes" },
+      { ...slots[2], type: "ifNeedBe" },
+    ]);
+
+    expect(intervals).toEqual([
+      { start: slots[0].start, end: slots[1].end, type: "yes" },
+      { start: slots[2].start, end: slots[2].end, type: "ifNeedBe" },
+    ]);
+    expect(normalizeAvailabilityIntervals(weeklyConfig, intervals)).toEqual(
+      intervals,
+    );
+    expect(() =>
+      normalizeAvailabilityIntervals(weeklyConfig, [
+        {
+          start: "2026-01-13T01:00:00.000Z",
+          end: "2026-01-13T01:30:00.000Z",
+          type: "yes",
+        },
+      ]),
     ).toThrow("time grid");
   });
 });

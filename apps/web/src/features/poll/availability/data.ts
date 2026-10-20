@@ -6,6 +6,7 @@ import {
   availabilityIntervalsSchema,
 } from "./schema";
 import type { AvailabilityParticipant } from "./types";
+import { isWeeklyAvailability } from "./utils";
 
 const participantSelect = { id: true, name: true, availability: true } as const;
 
@@ -51,7 +52,10 @@ export async function getAvailabilityPoll(pollId: string, canManage = false) {
   });
   if (!poll) return null;
   const config = availabilityConfigSchema.parse(poll.availabilityConfig);
-  const option = poll.status === "scheduled" ? poll.options[0] : undefined;
+  const option =
+    !isWeeklyAvailability(config) && poll.status === "scheduled"
+      ? poll.options[0]
+      : undefined;
   return {
     id: poll.id,
     title: poll.title,
@@ -142,6 +146,7 @@ export async function getAvailabilityCalendarData(pollId: string) {
       description: true,
       location: true,
       timeZone: true,
+      availabilityConfig: true,
       options: {
         select: { id: true, startTime: true, duration: true },
         take: 1,
@@ -150,6 +155,13 @@ export async function getAvailabilityCalendarData(pollId: string) {
     },
   });
   if (!poll || !poll.options[0]) return null;
+  // Weekly slot keys use an internal anchor and must never become a dated ICS.
+  if (
+    isWeeklyAvailability(
+      availabilityConfigSchema.parse(poll.availabilityConfig),
+    )
+  )
+    return null;
   const option = poll.options[0];
   return {
     uid: `${poll.id}-${option.id}@meet.rshwub.com`,

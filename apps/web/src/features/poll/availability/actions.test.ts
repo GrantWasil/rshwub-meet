@@ -57,6 +57,7 @@ const responseInput = {
   intervals: [],
 };
 const config = {
+  mode: "dates" as const,
   dates: ["2026-10-20"],
   timeZone: "America/Denver",
   startMinute: 1080,
@@ -104,6 +105,34 @@ describe("availability action authorization", () => {
       spaceId: "space",
       input: { title: "Meet", config },
     });
+  });
+
+  it("creates a recurring week without persisting representative calendar dates", async () => {
+    mocks.actor.mockResolvedValue({ id: "guest", isGuest: true });
+    const weeklyConfig = { ...config, mode: "weekly" as const, dates: [] };
+
+    await createAvailabilityPollAction({
+      title: "Typical week",
+      config: weeklyConfig,
+    });
+
+    expect(mocks.create).toHaveBeenCalledWith({
+      userId: "guest",
+      spaceId: undefined,
+      input: { title: "Typical week", config: weeklyConfig },
+    });
+  });
+
+  it("rejects calendar dates supplied to a recurring week", async () => {
+    mocks.actor.mockResolvedValue({ id: "guest", isGuest: true });
+
+    await expect(async () =>
+      createAvailabilityPollAction({
+        title: "Typical week",
+        config: { ...config, mode: "weekly" },
+      }),
+    ).rejects.toThrow("Weekly availability does not use calendar dates");
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 
   it.each([

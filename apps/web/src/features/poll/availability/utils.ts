@@ -7,13 +7,30 @@ import type {
 
 const MINUTE = 60_000;
 
+// Stable internal coordinates for a typical Monday–Sunday week. These are not
+// event dates: changing this anchor would invalidate persisted weekly responses.
+const WEEKLY_DATES = [
+  "2026-01-05",
+  "2026-01-06",
+  "2026-01-07",
+  "2026-01-08",
+  "2026-01-09",
+  "2026-01-10",
+  "2026-01-11",
+] as const;
+
+export function isWeeklyAvailability(config: Pick<AvailabilityConfig, "mode">) {
+  return config.mode === "weekly";
+}
+
 /** Enumerate real instants so DST gaps vanish and repeated hours stay distinct. */
 export function getAvailabilitySlots(
   config: AvailabilityConfig,
 ): AvailabilitySlot[] {
   const local = createWallClockReader(config.timeZone);
   const slots: AvailabilitySlot[] = [];
-  for (const date of [...config.dates].sort()) {
+  const dates = isWeeklyAvailability(config) ? WEEKLY_DATES : config.dates;
+  for (const date of [...dates].sort()) {
     const midnight = Date.parse(`${date}T00:00:00.000Z`);
     // Current civil offsets span UTC-12 through UTC+14. Scan at the
     // smallest supported granularity to also cover half/quarter-hour zones.

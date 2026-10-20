@@ -23,12 +23,14 @@ export function AvailabilityRangeInput({
   onApply,
   timeZone,
   locale,
+  weekly = false,
 }: {
   slots: GridSlot[];
   brush: GridVote;
   onApply: (slots: GridSlot[]) => void;
   timeZone: string;
   locale: string;
+  weekly?: boolean;
 }) {
   const dates = [...new Set(slots.map((slot) => slot.date))];
   const [date, setDate] = React.useState(dates[0]);
@@ -47,7 +49,11 @@ export function AvailabilityRangeInput({
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor={`${id}-date`}>
-            <Trans i18nKey="date" defaults="Date" />
+            {weekly ? (
+              <Trans i18nKey="availabilityWeekday" defaults="Day of the week" />
+            ) : (
+              <Trans i18nKey="date" defaults="Date" />
+            )}
           </Label>
           <Select
             value={date}
@@ -64,7 +70,7 @@ export function AvailabilityRangeInput({
                 {(value) =>
                   formatDate(new Date(`${value}T12:00:00Z`), {
                     locale,
-                    preset: "monthDay",
+                    preset: weekly ? "weekday" : "monthDay",
                   })
                 }
               </SelectValue>
@@ -74,7 +80,7 @@ export function AvailabilityRangeInput({
                 <SelectItem key={value} value={value}>
                   {formatDate(new Date(`${value}T12:00:00Z`), {
                     locale,
-                    preset: "weekdayMonthDay",
+                    preset: weekly ? "weekday" : "weekdayMonthDay",
                   })}
                 </SelectItem>
               ))}
@@ -102,7 +108,7 @@ export function AvailabilityRangeInput({
                         locale,
                         timeZone,
                         preset: "time",
-                        showTimeZone: true,
+                        showTimeZone: !weekly,
                       })
                     : ""
                 }
@@ -115,7 +121,7 @@ export function AvailabilityRangeInput({
                     locale,
                     timeZone,
                     preset: "time",
-                    showTimeZone: true,
+                    showTimeZone: !weekly,
                   })}
                 </SelectItem>
               ))}
@@ -140,7 +146,7 @@ export function AvailabilityRangeInput({
                         locale,
                         timeZone,
                         preset: "time",
-                        showTimeZone: true,
+                        showTimeZone: !weekly,
                       })
                     : ""
                 }
@@ -154,7 +160,7 @@ export function AvailabilityRangeInput({
                       locale,
                       timeZone,
                       preset: "time",
-                      showTimeZone: true,
+                      showTimeZone: !weekly,
                     })}
                   </SelectItem>
                 ) : null,

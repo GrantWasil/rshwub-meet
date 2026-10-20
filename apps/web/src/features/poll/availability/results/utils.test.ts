@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getAvailabilitySlots } from "../utils";
 import {
   findAvailabilityWindows,
   getAvailabilityResults,
@@ -182,5 +183,59 @@ describe("continuous availability results", () => {
       yes: ["Casey"],
       maybe: [],
     });
+  });
+
+  it("ranks recurring weekday windows for the chosen duration and shared zone", () => {
+    const week = getAvailabilitySlots({
+      mode: "weekly",
+      dates: [],
+      timeZone: "America/Denver",
+      startMinute: 9 * 60,
+      endMinute: 12 * 60,
+      slotMinutes: 30,
+      durationMinutes: 120,
+    });
+    const monday = week.filter((slot) => slot.date === "2026-01-05");
+    const tuesday = week.filter((slot) => slot.date === "2026-01-06");
+    const result = getAvailabilityResults(
+      week,
+      [
+        {
+          id: "a",
+          name: "Alex",
+          intervals: [
+            { start: monday[0].start, end: monday[3].end, type: "yes" },
+          ],
+        },
+        {
+          id: "b",
+          name: "Blair",
+          intervals: [
+            { start: monday[0].start, end: monday[2].end, type: "yes" },
+            { start: monday[3].start, end: monday[3].end, type: "ifNeedBe" },
+          ],
+        },
+        {
+          id: "c",
+          name: "Casey",
+          intervals: [
+            { start: tuesday[0].start, end: tuesday[3].end, type: "yes" },
+          ],
+        },
+      ],
+      120,
+    );
+
+    expect(result.windows).toHaveLength(21);
+    expect(result.windows[0]).toEqual({
+      start: "2026-01-05T16:00:00.000Z",
+      end: "2026-01-05T18:00:00.000Z",
+      yes: ["Alex"],
+      maybe: ["Blair"],
+    });
+    expect(result.windows[1].yes).toEqual(["Casey"]);
+    expect(result.counts[monday[0].start]).toEqual({ yes: 2, maybe: 0 });
+    expect(result.counts[monday[3].start]).toEqual({ yes: 1, maybe: 1 });
+    expect(result.counts[tuesday[0].start]).toEqual({ yes: 1, maybe: 0 });
   });
 });
